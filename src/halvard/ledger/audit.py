@@ -9,6 +9,7 @@ Design points
   * The head is anchored in a separate sealed file, so truncating the tail is detected.
 Reference limitation: the seal is HMAC-SHA256. Production uses an asymmetric signature from a customer-managed key (F117).
 """
+import time
 import hashlib, hmac, json, os, secrets, threading
 from pathlib import Path
 
@@ -112,7 +113,12 @@ class AuditLog:
         body = {"seq": self._seq, "hash": self._head}
         body["seal"] = hmac.new(self._key, _canon(body), "sha256").hexdigest()
         tmp = self.anchor.with_suffix(".tmp")
-        tmp.write_bytes(_canon(body)); os.replace(tmp, self.anchor)
+        tmp.write_bytes(_canon(body))
+        for attempt in range(30):          # on Windows a virus scanner or indexer can hold the file for a moment; a real fault still raises
+            try: os.replace(tmp, self.anchor); return
+            except PermissionError:
+                if attempt == 29: raise
+                time.sleep(0.1)
 
     def _load_tail(self):
         seq, head = 0, self.GENESIS

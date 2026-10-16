@@ -69,6 +69,17 @@ class LedgerTests(unittest.TestCase):
         rec = json.loads(pathlib.Path(log.path).read_text(encoding="utf-8").splitlines()[0])
         self.assertNotIn("pat.lee@example.com", json.dumps(rec["public"]))
 
+    def test_a_briefly_locked_anchor_file_is_retried_not_fatal(self):
+        import unittest.mock as m
+        real, calls = os.replace, []
+        def flaky(a, b):
+            calls.append(1)
+            if len(calls) <= 2: raise PermissionError(13, "Access is denied")
+            return real(a, b)
+        with m.patch("halvard.ledger.audit.os.replace", flaky), m.patch("halvard.ledger.audit.time.sleep"):
+            log = mk(self.tmp)
+        self.assertGreaterEqual(len(calls), 3); self.assertEqual(log.verify(), (True, []))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -119,6 +119,7 @@ MUTATIONS = [
     ("Courier: passwords reset for every malware case", "controlplane.py", "\"reset_credentials\": takeover, \"reset_mfa\": takeover,", "\"reset_credentials\": True, \"reset_mfa\": True,"),
     ("Courier: documents not fingerprinted on the device", "ward/agent.py", "if ext in self.HASH_EXT and len(data) <= self.HASH_MAX else None", "if False else None"),
     ("Courier: small groups shown in exercise results", "courier/exercises.py", "MIN_GROUP = 5", "MIN_GROUP = 0"),
+    ("Ledger: a briefly locked anchor file is fatal", "ledger/audit.py", "                if attempt == 29: raise", "                raise"),
     ("Ledger: addresses allowed in public fields", "ledger/audit.py", "            pub = scrub({k: v for k, v in data.items() if k not in PII_KEYS})", "            pub = {k: v for k, v in data.items() if k not in PII_KEYS}"),
     ("Courier: staff list frozen at start-up", "courier/impersonation.py", "        return {r.name.lower() for r in self.hr.records.values()} | self.vip_names", "        if not hasattr(self, '_c'): self._c = {r.name.lower() for r in self.hr.records.values()} | self.vip_names\n        return self._c"),
     ("Courier: sender-only fraud reported as a harmful attachment", "courier/service.py", "        if rec.verdict == \"malicious\" and self.last_content_score >= 0.85:", "        if rec.verdict == \"malicious\":"),

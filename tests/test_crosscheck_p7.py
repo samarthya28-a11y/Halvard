@@ -61,7 +61,8 @@ class TripwireTests(unittest.TestCase):
         self.assertEqual(res.status, "executed")
         before = pathlib.Path(bait).read_bytes()
         link = os.path.join(w.tmp, "via-link")
-        os.symlink(root, link)
+        try: os.symlink(root, link)
+        except OSError as e: self.skipTest(f"this account may not create symbolic links here ({e.__class__.__name__})")
         via = os.path.join(link, "!000-budget.xlsx")
         w.host.spawn(8, "locker.exe")
         with self.assertRaises(Blocked):
