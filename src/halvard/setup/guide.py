@@ -47,7 +47,7 @@ class GuidedSetup:
 
     def progress(self):
         ok = sum(1 for r in self.done.values() if r.ok)
-        return f"{ok} of {len(self.STEPS)} protections proven on this computer"
+        return f"{ok} of {len(self.STEPS)} setup checks passed on this computer (in the reference build; a native agent has its own checks)"
 
     def run_current(self):
         key, _ = self.next_step()
@@ -100,7 +100,7 @@ class GuidedSetup:
         code = self.agent.tamper.issue_uninstall_token(self.admin.id)
         return StepResult("tamper", refused, "An attempt to switch Halvard off without a console code was refused and recorded."
                           if refused else "The attempt was not refused.",
-                          "Only an administrator can stop or remove Halvard, using a short-lived one-time code.",
+                          "Stopping or removing Halvard needs a short-lived one-time code from an administrator. In this reference build that is a check inside the agent; kernel-level self-protection is not built yet.",
                           "Next: test network isolation.", {"refused": refused, "one_time_code_issued": bool(code)})
 
     def _isolation(self):
@@ -116,7 +116,7 @@ class GuidedSetup:
         return StepResult("isolation", ok,
                           "This computer was cut off from everything except Halvard, then reconnected." if ok else
                           f"Isolation test did not complete ({r.status}). {r.message}",
-                          "You can isolate a computer in one click; Halvard stays connected so you can release it.",
+                          "A computer can be isolated while Halvard stays connected so it can be released. (The console that would offer this as one click is not built; the action itself is demonstrated.)",
                           "Next: prove file recovery.", {"management_reachable": mgmt_up, "other_network_blocked": web_down,
                                                           "released_after_test": released})
 

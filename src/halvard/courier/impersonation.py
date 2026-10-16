@@ -4,6 +4,8 @@ Signals: display name of a known executive or colleague on an outside address; a
 partner's; Reply-To pointing somewhere else; failed authentication while claiming the company's own domain; first contact from
 that sender; payment wording; and a bank account that differs from the one on file for that supplier (compared by hash).
 """
+from ..vaultline.classifiers import extract_text
+from ..addr import domain_of
 import hashlib, re
 from dataclasses import dataclass, field
 
@@ -46,10 +48,11 @@ class ImpersonationDetector:
         out, dom = [], msg.sender_domain
         first_time = msg.sender.lower() not in self.seen.get(recipient, set())
         outside = dom not in self.own and not any(dom.endswith("." + o) for o in self.own)
-        text = f"{msg.subject}\n{msg.body}"; pay = bool(PAYMENT.search(text)); urgent = bool(URGENCY.search(text))
+        att = "\n".join(extract_text(a.name, a.data[:200_000])[0] for a in msg.attachments)      # a payment request can live only in an attachment
+        text = f"{msg.subject}\n{msg.body}\n{att}"; pay = bool(PAYMENT.search(text)); urgent = bool(URGENCY.search(text))
         spoof_name = outside and msg.display_name.lower() in self.names and dom not in self.partners
         look = lookalike_of(dom, self.own | self.partners)
-        reply_diff = bool(msg.reply_to and msg.reply_to.rsplit("@", 1)[-1].lower() != dom)
+        reply_diff = bool(msg.reply_to and domain_of(msg.reply_to) != dom)
         claims_own_failed = (dom in self.own) and msg.auth.get("dmarc") != "pass"
         if claims_own_failed:
             out.append(Signal("spoofed_own_domain", 0.9, f"the message says it is from {dom} but failed sender checks (SPF {msg.auth['spf']}, DKIM {msg.auth['dkim']}, DMARC {msg.auth['dmarc']})",
@@ -62,7 +65,7 @@ class ImpersonationDetector:
             c = 0.75 + (0.1 if reply_diff else 0) + (0.05 if urgent else 0) + (0.05 if pay else 0)
             out.append(Signal("display_name_spoof", min(c, 0.95), "the display name is a known colleague's, but the address is outside the company" + ("; replies go elsewhere" if reply_diff else "") + ("; urgent wording" if urgent else ""),
                               f"A message uses {msg.display_name}'s name from an outside address.", "T1566", {"name": msg.display_name}))
-        ibans = {iban_hash(m) for m in IBAN.findall(msg.body.replace(" ", "")) } | {iban_hash(m) for m in IBAN.findall(msg.body)}
+        body = f"{msg.body}\n{att}"; ibans = {iban_hash(m) for m in IBAN.findall(body.replace(" ", ""))} | {iban_hash(m) for m in IBAN.findall(body)}
         known = self.supplier_ibans.get(dom)
         if pay and ibans:
             if known is not None and not (ibans & known):

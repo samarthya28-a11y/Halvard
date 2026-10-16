@@ -133,9 +133,15 @@ class CaseScoringTests(unittest.TestCase):
         story = self.E.story(a); self.assertEqual(len(story), 1); self.assertIn("seen 2 times", story[0])
 
     def test_a_finding_that_bridges_two_cases_merges_them(self):
-        a = self.E.add(self.f(1, "signet", "identity_takeover", "id:a", 0.9)); self.s.put_edge(self.c, "p:b", "uses", "D1", self.clock.now())
-        b = self.E.add(self.f(2, "signet", "identity_takeover", "id:b", 0.9, 5)); self.assertEqual(len(self.E.cases), 1)
+        a = self.E.add(self.f(1, "signet", "identity_takeover", "id:a", 0.9)); b = self.E.add(self.f(2, "signet", "identity_takeover", "id:b", 0.9, 5))
+        self.assertEqual(len(self.E.cases), 2)                      # two people who merely share a computer are not one story (found by the cross-check)
+        self.s.put_edge(self.c, "p:b", "acts_for", "id:a", self.clock.now())      # but a link that joins their identities does bridge them
+        self.E.add(self.f(3, "signet", "identity_takeover", "id:a", 0.9, 10)); self.assertEqual(len(self.E.cases), 1)
 
+    def test_findings_about_a_shared_computer_join_each_other_and_not_the_people_who_use_it(self):
+        self.s.put_edge(self.c, "p:b", "uses", "D1", self.clock.now())
+        x = self.E.add(self.f(1, "ward", "credential_theft", "D1", 0.7)); y = self.E.add(self.f(2, "hearth", "tripwire", "D1", 0.9, 5)); z = self.E.add(self.f(3, "signet", "identity_takeover", "id:b", 0.9, 8))
+        self.assertEqual(x.id, y.id); self.assertNotEqual(x.id, z.id); self.assertNotIn("p:a", x.entities); self.assertNotIn("p:b", x.entities)
 
 if __name__ == "__main__":
     unittest.main()

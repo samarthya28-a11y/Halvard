@@ -17,7 +17,7 @@ class SetupTests(unittest.TestCase):
             key, title = g.next_step(); seen.append(title); r = g.run_current()
             self.assertTrue(r.ok, f"{key}: {r.happened}"); self.assertTrue(r.protected and r.next)
             if len(seen) > 12: self.fail("setup does not converge")
-        self.assertEqual(len(seen), 6); self.assertEqual(g.progress(), "6 of 6 protections proven on this computer")
+        self.assertEqual(len(seen), 6); self.assertEqual(g.progress(), "6 of 6 setup checks passed on this computer (in the reference build; a native agent has its own checks)")
         self.assertFalse(host.isolated)                                   # test left the machine usable
         self.assertIn("ransomware_stop", a.engine.auth.policy.accepted_patterns)
         for need in ("F004", "F006", "F016", "F037", "F040"): self.assertTrue(any(f == need for _, _, f in g.STEPS))

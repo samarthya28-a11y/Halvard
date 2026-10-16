@@ -109,6 +109,7 @@ class ControlPlane:
     def process(self):
         """Poll connectors, Courier and Ward agents, group into cases, apply the automatic-response policy. Returns touched cases."""
         touched = {}
+        self.engine.offer_due()
         for d, agent in self.fleet.agents.items():         # an online agent's own last check-in time is what coverage measures
             if agent.online and self.store.has_entity(self.ctx, d): self.store.heartbeat(self.ctx, f"ward-{d}", agent.sensors["heartbeat"])
         def add(cf):

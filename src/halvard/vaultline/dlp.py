@@ -65,7 +65,7 @@ def decide(classification, channel, dest_class, rules=None, min_conf=0.7) -> Dec
     best.labels = labels
     for r in rules:
         if r["channel"] not in ("*", channel) or not ("*" in r["dest"] or dest_class in r["dest"]): continue
-        hit = (r.get("labels") and any(l in labels for l in r["labels"])) or (r.get("sensitivity") and labels and RANK[classification.sensitivity] >= RANK[r["sensitivity"]])
+        hit = (r.get("labels") and any(l in labels for l in r["labels"])) or (r.get("sensitivity") and (labels or classification.unscannable) and RANK[classification.sensitivity] >= RANK[r["sensitivity"]])
         if hit and (ORDER[r["action"]] > ORDER[best.action] or best.rule is None or (r["action"] == best.action and best.justifiable and not r.get("justifiable", True))):
-            best = Decision(r["action"], r["id"], labels, r["message"], r.get("justifiable", True), True)
+            best = Decision(r["action"], r["id"], labels, r["message"] + (f" (Halvard could not read this file: {classification.unscannable}, so it is treated as confidential.)" if classification.unscannable and not labels else ""), r.get("justifiable", True), True)
     return best

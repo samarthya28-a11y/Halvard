@@ -58,7 +58,7 @@ Plain-language incident page produced for the non-security reader:
 Incident on LT-17: a program was scrambling files
 
 WHAT IS HAPPENING
-  halvard-safe-simulation overwrote files with unreadable data. Confidence 60%.
+  halvard-safe-simulation overwrote files with unreadable data. Confidence 60% (rule-assigned, not a calibrated probability).
   Evidence: 8 existing files overwritten with unrecognizable data in 0s; original file signatures were destroyed.
   Halvard decided this on the computer itself (no connection to Halvard at the time).
 
@@ -143,7 +143,7 @@ forged tenant id: refused (TenantIsolationError)
 [ok] Stop people and malware from switching Halvard off: An attempt to switch Halvard off without a console code was refused and recorded.
 [ok] Cut a computer off the network, keeping Halvard connected: This computer was cut off from everything except Halvard, then reconnected.
 [ok] Stop file-scrambling and restore the files: When Halvard sees a program scrambling many files it will: (1) freeze the program, (2) stop it, (3) restore the files from its own journal. You can undo any step. A harmless simulation then scrambled test files. Halvard stopped it and restored 30 of 30 files, with no connection to the cloud.
-6 of 6 protections proven on this computer
+6 of 6 setup checks passed on this computer (in the reference build; a native agent has its own checks)
 ```
 The test drives the guide using only `next_step()` / `run_current()`; it contains no knowledge of the steps. A human usability trial with a real IT generalist has **not** been run.
 

@@ -114,7 +114,7 @@ The single prompt is kept in `docs/23-cursor-prompt.md` (copy it from there). It
 ## 3. Places most likely to hide bugs (the author's own list)
 
 1. `relay/actions.py`: gate ordering in `request()` (actor check, class resolution, extra requirements, windows, legal hold, pattern gate, approvals); `_apply` sets `req._approvals` for composite steps; `approve()` for two-person counting distinct people.
-2. `relay/journal.py`: the "changed after the incident" logic (post-state fingerprints by size and mtime, not content); rate-limited pre-image reuse; `open` records restored only if the file vanished.
+2. `relay/journal.py`: the "changed after the incident" logic (post-state fingerprints: whole-content hash up to 4 MiB; above that size, ends and mtime; a kernel-hook sensor uses size+mtime because it must not open the files it judges); rate-limited pre-image reuse; `open` records restored only if the file vanished.
 3. `platforms/linux.py`: ordering between the permission thread, the notification thread and the response worker; `settle()` is a time-based wait, not a proof; pending events keyed by inode; fails open on its own faults.
 4. `ledger/audit.py`: the PII-key list decides what is tokenized in auditor exports; a personal field under an unlisted key would leak. The seal is HMAC with a key the same process holds.
 5. `signet/detectors.py`: sliding windows keyed by address/user; thresholds untuned; `token_replay` with no home device is weaker evidence.
@@ -160,7 +160,7 @@ Run each step, compare with "expect", and note anything that surprises you.
 
 1. `python3 -W ignore -m unittest discover -s tests` → expect `OK` (counts grow by phase). If not root, Linux tests are skipped.
 2. `PYTHONPATH=src python3 -m halvard.cli demo` → expect a plain-language incident page ending `Ledger intact: True`.
-3. `PYTHONPATH=src python3 -m halvard.cli setup` → expect six steps, each ✔, ending `6 of 6 protections proven`.
+3. `PYTHONPATH=src python3 -m halvard.cli setup` → expect six steps, each ✔, ending `6 of 6 setup checks passed`.
 4e. `PYTHONPATH=src python3 -m halvard.cli platform` then `... rogue-device` (after Phase 8) → expect two companies with an entity of the same name each seeing only their own, a forged identity refused with the record in the target's ledger, a holding company seeing nothing until a subsidiary grants it, Keeper's queue with names hidden and an action refused without elevation, a bank's data locked and unlocked by its own key, then an unknown device on the server network with reasons, advice withheld until 14 days, and a change request filed that changes nothing itself.
 4d. `PYTHONPATH=src python3 -m halvard.cli ai-agent` then `... tripwires` (after Phase 7) → expect shadow AI tools listed first, an agent blocked from sending card data after reading a web page and then suspended with the case saying so, and a ransomware-style burst stopped with zero files changed because of one tripwire, then a bait file, a decoy account and a laptop in one case.
 4c. `PYTHONPATH=src python3 -m halvard.cli patch-day` (after Phase 6) → expect a ranked list with the web-server flaw first, a program switched off on a laptop, the production port waiting for an approver, a bad update stopped at the pilot ring, an expired protection that stays in force, and a board page with a capped score and a list of what is not measured.

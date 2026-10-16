@@ -11,6 +11,12 @@ from pathlib import Path
 from .authority import Authority, Requirement, ORDER
 from .matrix_def import BY_KEY
 from .journal import RollbackReport
+from ..ledger.audit import opaque
+
+
+def scope_item(t):
+    """What an action touched, as it may appear in the PUBLIC half of the Ledger: an entity id as is, a file path only as a stable token (the real path is in the private fields)."""
+    s = str(t); return "path:" + opaque(s)[2:] if ("/" in s or "\\" in s) else s
 
 CLEANUP = {"remove_persistence", "config_rollback", "journal_rollback", "quarantine_file", "reset_credentials"}
 JIT_ROLES = {"keeper_crew", "service_provider", "halvard_support"}
@@ -56,6 +62,7 @@ class ActionEngine:
         self.device_id = device_id
         self.evidence_dir = Path(evidence_dir or (self.state / "evidence"))
         self.pending, self.executed, self.holds, self._n = {}, {}, {}, 0
+        self.deferred = {}      # actions held back by a maintenance window: id -> {req, until}; offer_due() asks again once the window has ended
         self.adapters = __import__("types").SimpleNamespace()     # identity providers, directory, fleet, notifier (control plane only)
         self.handlers = {
             "isolate_host": _Isolate(), "release_isolation": _Release(), "stop_process": _Stop(),
@@ -88,9 +95,10 @@ class ActionEngine:
         # gate: maintenance window (F049/F122)
         win = self._window(req)
         if win and a["destructive"] and not req.critical:
-            self._log("relay.action_deferred", req, {"until": win[1]}, ("RELAY.MAINTENANCE_WINDOWS",))
-            return Result("deferred", message=f"{req.targets[0]} is in a maintenance window until {int(win[1])}; "
-                          "this will be offered again then. Critical cases are never deferred.", preview=plan,
+            self._n += 1; did = f"defer-{self._n}"; self.deferred[did] = {"req": req, "until": win[1]}
+            self._log("relay.action_deferred", req, {"until": win[1], "deferred": did}, ("RELAY.MAINTENANCE_WINDOWS",))
+            return Result("deferred", action_id=did, message=f"{req.targets[0]} is in a maintenance window until {int(win[1])}. The request is kept ({did}) and is asked again "
+                          "on the first cycle after the window ends. Critical cases are never deferred.", preview=plan,
                           requirement=reqmt)
         # gate: legal hold (F048)
         if req.case_id and self.holds.get(req.case_id) == "unfrozen" and req.action in CLEANUP:
@@ -107,6 +115,13 @@ class ActionEngine:
             return self._park(req, reqmt, plan, "pending_approval",
                               f"Waiting for {reqmt.approvals_needed} approval(s) from: {', '.join(reqmt.approve_roles)}.")
         return self._apply(req, reqmt, plan, approvals=[])
+
+    def offer_due(self):
+        """Ask again for every deferred action whose window has ended. Called by the control plane's cycle and by the agent's heartbeat; there is no separate scheduler."""
+        out = []
+        for did in [d for d, v in self.deferred.items() if v["until"] <= self.clock.now()]:
+            v = self.deferred.pop(did); out.append(self.request(v["req"]))
+        return out
 
     def request_authorized(self, req: ActionRequest, cmd: dict) -> Result:
         """Run an action whose approvals were gathered by the control plane and carried in a verified command.
@@ -203,7 +218,7 @@ class ActionEngine:
         undo = {"undo_with": BY_KEY[req.action]["reversal"], "data": outcome.get("undo"),
                 "cannot_undo": plan.get("cannot_undo", [])}
         self.executed[aid] = {"req": req, "undo": undo, "undone": False}
-        data = {"pending": pending_id, "scope": [str(t) for t in req.targets], "reason": req.reason,
+        data = {"pending": pending_id, "scope": [scope_item(t) for t in req.targets], "targets": [str(t) for t in req.targets], "reason": req.reason,
                 "approval_rule": reqmt.level, "approvers": [x.role for x in approvals],
                 "approver_ids": [x.id for x in approvals], "reversible": BY_KEY[req.action]["reversible"],
                 "reversal": undo["undo_with"], "cannot_undo": undo["cannot_undo"],

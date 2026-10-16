@@ -11,7 +11,7 @@ DOING = {"stop_process": "Stopped the program", "isolate_host": "Cut this comput
 def render(inc, device, asset_class="standard"):
     L = [f"Incident on {device}: a program was scrambling files", "",
          "WHAT IS HAPPENING",
-         f"  {inc['process']} overwrote files with unreadable data. Confidence {inc['confidence']:.0%}.",
+         f"  {inc['process']} overwrote files with unreadable data. Confidence {inc['confidence']:.0%} (rule-assigned, not a calibrated probability).",
          "  Evidence: " + "; ".join(inc["reasons"]) + ".",
          f"  Halvard decided this on the computer itself ({'no connection to Halvard at the time' if not inc['online'] else 'connected'}).",
          "", "WHAT HALVARD ALREADY DID"]

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 300" role="img" aria-labelledby="t d">
+  <title id="t">Halvard, Corporate Assurance Fabric</title>
+  <desc id="d">The Halvard shield mark followed by the name and tagline.</desc>
+  <rect width="1180" height="300" rx="28" fill="#071426"/>
+  <g transform="translate(36 22) scale(.5)">
+    <defs>
+      <linearGradient id="sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#12315c"/><stop offset="1" stop-color="#0a1c36"/></linearGradient>
+      <linearGradient id="th" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5eead4"/><stop offset="1" stop-color="#14b8a6"/></linearGradient>
+      <linearGradient id="fl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd37a"/><stop offset="1" stop-color="#ff9f1c"/></linearGradient>
+    </defs>
+    <path d="M256 36 L452 110 V254 C452 362 376 444 256 484 C136 444 60 362 60 254 V110 Z" fill="url(#sh)" stroke="#5eead4" stroke-opacity=".55" stroke-width="6" stroke-linejoin="round"/>
+    <rect x="160" y="150" width="46" height="232" rx="23" fill="url(#th)"/>
+    <rect x="306" y="150" width="46" height="232" rx="23" fill="url(#th)"/>
+    <rect x="160" y="248" width="192" height="40" rx="20" fill="#0b2a4a" stroke="url(#th)" stroke-width="6"/>
+    <rect x="306" y="236" width="46" height="64" fill="url(#th)"/>
+    <path d="M306 236 H352 M306 300 H352" stroke="#0a1c36" stroke-width="5"/>
+    <path d="M256 160 C282 190 292 208 292 226 C292 246 276 258 256 258 C236 258 220 246 220 226 C220 212 230 200 244 188 C244 200 250 206 256 206 C262 198 262 180 256 160 Z" fill="url(#fl)"/>
+    <path d="M256 214 C266 224 270 232 270 240 C270 248 264 254 256 254 C248 254 242 248 242 240 C242 232 250 226 256 214 Z" fill="#fff3d6" opacity=".9"/>
+    <path d="M190 330 H322" stroke="#5eead4" stroke-opacity=".45" stroke-width="5" stroke-linecap="round"/>
+    <path d="M212 350 H300" stroke="#5eead4" stroke-opacity=".28" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <text x="330" y="168" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="108" font-weight="700" letter-spacing="14" fill="#e8fffb">HALVARD</text>
+  <rect x="334" y="188" width="150" height="5" rx="2.5" fill="#ff9f1c"/>
+  <text x="334" y="236" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="32" letter-spacing="9" fill="#5eead4">CORPORATE ASSURANCE FABRIC</text>
+</svg>

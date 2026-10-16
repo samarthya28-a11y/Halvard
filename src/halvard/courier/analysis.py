@@ -111,7 +111,7 @@ def edit_distance(a, b):
     return prev[-1]
 
 
-CONFUSABLES = {"0": "o", "3": "e", "5": "s", "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y", "і": "i", "ѕ": "s", "ο": "o", "ı": "i"}
+CONFUSABLES = {"0": "o", "3": "e", "5": "s", "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y", "і": "i", "ѕ": "s", "ο": "o", "ı": "i", "α": "a", "ε": "e", "ρ": "p", "ν": "v", "τ": "t", "κ": "k", "ι": "i", "β": "b", "η": "n", "μ": "u", "ω": "w"}
 
 
 def skeletons(domain):
@@ -124,6 +124,15 @@ def skeletons(domain):
     return out
 
 
+def _wildcard_match(d, p):
+    """A domain with letters outside ASCII (an internationalised name) that matches a protected one wherever it is ASCII, with each foreign letter standing for any one character.
+    This catches homoglyphs that no table lists. Plain ASCII domains never take this path."""
+    try: d = d.encode("ascii").decode("idna") if "xn--" in d else d
+    except UnicodeError: pass
+    if all(ord(c) < 128 for c in d) or len(d) != len(p): return False
+    return all(ord(c) >= 128 or c == q for c, q in zip(d, p)) and sum(ord(c) >= 128 for c in d) >= 1
+
+
 def lookalike_of(domain, protected):
     """Return the protected domain this one imitates, or None. An exact match or a real subdomain is not a look-alike."""
     d = domain.lower(); dl = d.split(".")[0]
@@ -131,6 +140,7 @@ def lookalike_of(domain, protected):
         p = p.lower(); pl = p.split(".")[0]
         if d == p or d.endswith("." + p): continue
         if skeletons(d) & skeletons(p): return p
+        if _wildcard_match(d, p): return p
         if len(p) >= 6 and edit_distance(d, p) <= 2: return p
         if len(pl) >= 4 and pl in dl.split("-") and dl != pl: return p        # acme-payments.com, secure-acme.net
         if dl == pl and d.rsplit(".", 1)[-1] != p.rsplit(".", 1)[-1]: return p   # acme.co for acme.com

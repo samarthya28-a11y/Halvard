@@ -4,6 +4,7 @@ Privacy: bodies are read in memory to analyse and never stored. Records keep ids
 the verdict and its reasons. The audit record never holds a subject or body. A service-desk listing shows sender, time, reasons and
 the first 40 characters of the subject so a person can recognise the message; that text is not written anywhere by Halvard.
 """
+from ..addr import domain_of
 import hashlib, re
 from dataclasses import dataclass, field
 
@@ -146,11 +147,11 @@ class CourierService:
         if e["kind"] == "forwarding_set" and e["external"]:
             out.append(self._f(ts, "external_forwarding", "mailbox_tampering", ent, "T1114.003", 0.95 if flagged else 0.8, "all mail is being copied to an outside address" + why_extra, f"{e['mailbox']} now forwards every message to {e['to']}.", [f"mail:{e['kind']}"], to=e["to"], ip=e.get("ip")))
         elif e["kind"] == "rule_create":
-            w, t = e["when"], e["then"]; ext = t.get("forward_to") and t["forward_to"].rsplit("@", 1)[-1].lower() not in self.own
+            w, t = e["when"], e["then"]; ext = t.get("forward_to") and domain_of(t["forward_to"]) not in self.own
             hides = (t.get("delete") or t.get("move_to") or t.get("mark_read")) and any(k in SENSITIVE_WORDS for k in [x.lower() for x in w.get("subject_contains", [])])
             if ext: out.append(self._f(ts, "forwarding_rule", "mailbox_tampering", ent, "T1114.003", 0.95 if flagged else 0.8, f"a rule forwards matching mail to {t['forward_to']}" + why_extra, f"A rule on {e['mailbox']} sends copies of mail to {t['forward_to']}.", [f"mail:{e['rule']}"], rule=e["rule"], ip=e.get("ip")))
             if hides: out.append(self._f(ts, "hiding_rule", "mailbox_tampering", ent, "T1564.008", 0.9 if flagged else 0.75, "a rule hides mail about " + ", ".join(w["subject_contains"]) + " from the owner" + why_extra, f"A rule on {e['mailbox']} hides messages about {', '.join(w['subject_contains'])}.", [f"mail:{e['rule']}"], rule=e["rule"], ip=e.get("ip")))
-        elif e["kind"] == "delegate_add" and e["delegate"].rsplit("@", 1)[-1].lower() not in self.own:
+        elif e["kind"] == "delegate_add" and domain_of(e["delegate"]) not in self.own:
             out.append(self._f(ts, "outside_delegate", "mailbox_tampering", ent, "T1114.003", 0.7, "an outside address was given access to the mailbox", f"{e['delegate']} was given access to {e['mailbox']}.", [f"mail:{e['kind']}"]))
         return out
 

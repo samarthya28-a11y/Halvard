@@ -13,7 +13,9 @@ import hashlib, hmac, json, os, secrets, threading
 from pathlib import Path
 
 PII_KEYS = {"path", "paths", "user", "upn", "host", "hostname", "file", "files", "target_user", "command",
-            "src", "dst", "email", "ip", "justification"}
+            "src", "dst", "email", "ip", "justification",
+            # free text and path lists written by actions and detectors: they can carry a person's name or a file name, so they live in the private half (found by the cross-check)
+            "reason", "summary", "targets", "preview", "sample_paths", "process"}
 FORBIDDEN_KEYS = {"content", "contents", "body", "text", "keystrokes", "document", "clipboard",
                   "screenshot", "audio", "webcam", "message"}
 MAX_STR = 1024
