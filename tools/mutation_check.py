@@ -6,7 +6,7 @@ S = ROOT / "src" / "halvard"
 MUTATIONS = [
     ("F040 journal restore does nothing", "relay/journal.py", "shutil.copyfile(self.root / \"blobs\" / digest, tmp); os.replace(tmp, path)", "pass"),
     ("F007 behavioral stop disabled", "ward/detect.py", "min_files=8", "min_files=10**9"),
-    ("F004 offline prevention needs cloud", "ward/verdict.py", "if d in self.known_bad or EICAR in data:", "if online and (d in self.known_bad or EICAR in data):"),
+    ("F004 offline prevention needs cloud", "ward/verdict.py", "if d in self.known_bad or EICAR in data or TEST_MARKER in data:", "if online and (d in self.known_bad or EICAR in data or TEST_MARKER in data):"),
     ("F016 uninstall code always accepted", "ward/tamper.py", "return hmac.compare_digest(good, sig) and float(exp) > self.clock.now() and nonce not in self.used_tokens", "return True"),
     ("F016 integrity check disabled", "ward/tamper.py", "if not f.exists() or hashlib.sha256(f.read_bytes()).hexdigest() != h:", "if False:"),
     ("policy signature unchecked", "ward/policy.py", "if not hmac.compare_digest(good, b.signature):", "if False:"),
