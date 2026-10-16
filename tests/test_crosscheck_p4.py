@@ -48,3 +48,9 @@ class ImpersonationBypassTests(unittest.TestCase):
         msg = Message("m", 0, "alice@acme.com", "Alice Kim", "hello", "normal note", ["bob@acme.com"],
                       auth={"spf": "pass", "dkim": "pass", "dmarc": "pass"})
         self.assertEqual(det.analyze(msg, "bob@acme.com"), [])
+
+
+class FixedFindingsTests(unittest.TestCase):
+    def test_a_homoglyph_that_no_table_lists_is_still_a_lookalike_when_it_lines_up_with_a_protected_name(self):
+        self.assertEqual(lookalike_of("tօօntօwn.com", {"toontown.com"}), "toontown.com")      # three Armenian letters: beyond the edit-distance net
+        self.assertIsNone(lookalike_of("tօօntօwn-news.org", {"toontown.com"}))                 # different length: not claimed

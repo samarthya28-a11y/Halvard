@@ -80,3 +80,10 @@ class EgressBypassTests(unittest.TestCase):
         self.assertEqual(e["sensitivity"], "public")
         self.assertEqual(e["suggested_sensitivity"], "regulated")
         self.assertEqual(w.cp.atlas.sensitivity_of("s3:cust-exports"), "public")
+
+
+class FixedFindingsTests(unittest.TestCase):
+    def test_two_long_numbers_side_by_side_are_not_one_card_but_a_card_written_in_groups_is(self):
+        c = Classifier()
+        self.assertNotIn("pci_card", c.classify("a.txt", b"orders 41111111 11111111 shipped").labels)       # the two halves of a valid number, but eight-digit groups are not how cards are written
+        self.assertIn("pci_card", c.classify("b.txt", b"card 4111 1111 1111 1111").labels)

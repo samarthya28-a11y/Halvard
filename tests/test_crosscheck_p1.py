@@ -111,3 +111,11 @@ class MaintenanceAndApprovalTests(unittest.TestCase):
         self.assertEqual(again.status, "denied")
         self.assertIn("own", again.message)
         self.assertFalse(a.host.isolated)
+
+
+class PublicScopeTests(unittest.TestCase):
+    def test_a_file_path_is_a_token_in_the_public_scope_and_the_real_path_is_private(self):
+        a, host, clock, _ = make_agent(tempfile.mkdtemp()); f = os.path.join(a.root, "payroll-2026.csv"); pathlib.Path(f).write_text("x", encoding="utf-8")
+        r = a.engine.request(ActionRequest("quarantine_file", Principal("system", "system"), [f], "malware", automatic=True, pattern="malware_quarantine")); self.assertEqual(r.status, "executed")
+        e = next(x for x in a.spool.entries() if x["kind"] == "relay.action_executed")
+        self.assertTrue(e["public"]["scope"][0].startswith("path:")); self.assertNotIn("payroll", json.dumps(e["public"])); self.assertIn("payroll-2026", json.dumps(e["private"]))
