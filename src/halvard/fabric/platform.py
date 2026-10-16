@@ -6,7 +6,8 @@ The walls, from the bottom up:
   * a separate Ledger, seal key and device-policy key per tenant, derived from a platform secret that no tenant ever sees
   * encrypted objects under a per-tenant data key wrapped by the customer's own master key where they choose one
   * the only way in from outside a tenant is a delegation the tenant opened (fabric/delegation.py); each use is logged in THAT tenant's Ledger
-Every refusal is recorded in the target tenant's Ledger. Nothing here reaches a tenant by guessing an id.
+Every refusal is recorded in the target tenant's Ledger. Every public method that acts for a company first checks that the caller is one of that company's enrolled members (or holds a grant the company opened); an id alone reaches nothing.
+In-process code that already holds a ControlPlane object is outside this wall by design: the real wall is a service boundary (see docs/12, item 29).
 """
 import hashlib, hmac, os
 from dataclasses import dataclass, field

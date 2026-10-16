@@ -263,7 +263,7 @@ class FanotifySensor:
         sample = os.pread(fd, 4096, 0)
         j = a.journal
         if rid:
-            j.mark_written(rid); j.after(rid, path)
+            j.mark_written(rid); j.after(rid, path, read=False)
         if was_empty or not head:
             from ..ward.detect import entropy, has_magic
             a.emit("file", "create", pid, path)
@@ -330,7 +330,7 @@ class FanotifySensor:
             src, dst = names.get(INFO_OLD_DFID_NAME), names.get(INFO_NEW_DFID_NAME)
             if not (src and dst): return
             self.stats["rename"] += 1
-            rid, _ = j.before(pid, "rename", src, dst); j.after(rid, dst)
+            rid, _ = j.before(pid, "rename", src, dst); j.after(rid, dst, read=False)
             ext = os.path.splitext(src)[1] != os.path.splitext(dst)[1]
             a.emit("file", "rename", pid, src, ("ext_changed",) if ext else (), dst_path=dst)
             self._observe(pid, dst, ("ext_changed",) if ext else ())
@@ -338,5 +338,5 @@ class FanotifySensor:
             path = names.get(INFO_DFID_NAME)
             if not path: return
             self.stats["delete"] += 1
-            rid, _ = j.before(pid, "delete", path); j.after(rid, path)
+            rid, _ = j.before(pid, "delete", path); j.after(rid, path, read=False)
             a.emit("file", "delete", pid, path)

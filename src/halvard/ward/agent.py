@@ -106,7 +106,7 @@ class WardAgent:
     FORBIDDEN_ROOTS = ("/etc", "/usr", "/bin", "/sbin", "/boot", "/sys", "/proc", "/dev", "/lib", "/windows", "/program files", "/programdata")
 
     @staticmethod
-    def _twkey(path): return os.path.normpath(str(path)).replace("\\", "/")
+    def _twkey(path): return os.path.normcase(os.path.realpath(str(path))).replace("\\", "/")      # a link to a tripwire is the tripwire
 
     def _decoy_bytes(self, spec):
         if spec.get("lure_text"): return spec["lure_text"].encode()
@@ -129,7 +129,7 @@ class WardAgent:
             if k in self.tripwires: continue
             why = None
             kk = k.lower().replace("\\", "/")
-            if not (os.path.isabs(t["path"]) or kk.startswith("/")): why = "the path is not absolute"
+            if not (os.path.isabs(t["path"]) or str(t["path"]).replace("\\", "/").startswith("/")): why = "the path is not absolute"
             elif any(kk.startswith(r) or (len(kk) > 2 and kk[1:2] == ":" and kk[2:].startswith(r)) for r in self.FORBIDDEN_ROOTS): why = "operating-system folders are never used"
             elif os.path.lexists(k): why = "a file already exists there; Halvard never replaces an existing file"
             elif not Path(k).parent.is_dir(): why = "the folder does not exist"
@@ -141,6 +141,7 @@ class WardAgent:
 
     def tripwire_gate(self, pid, op, *paths):
         """Called by the file hook BEFORE an operation. Changing an encryption tripwire stops the process now, before any real file is lost."""
+        if not self.tripwires: return          # most devices have none: the hot path pays nothing
         for p in paths:
             tw = self.tripwires.get(self._twkey(p))
             if not tw: continue
@@ -374,7 +375,7 @@ class WardAgent:
         self.tamper.seal()
 
     def heartbeat(self):
-        self.sensors["heartbeat"] = self.clock.now()
+        self.sensors["heartbeat"] = self.clock.now(); self.engine.offer_due()
 
 
 class ProtectedFS:
@@ -411,7 +412,7 @@ class ProtectedFS:
         self._gate(pid); self.a.tripwire_gate(pid, "create", path)
         rid, _ = self._before(pid, "create", path)
         Path(path).parent.mkdir(parents=True, exist_ok=True); Path(path).write_bytes(data)
-        if rid: self.a.journal.after(rid, path)
+        if rid: self.a.journal.after(rid, path, content=data)
         if len(data) >= 64 and not has_magic(data[:256]) and entropy(data[:self.SAMPLE]) > 7.5:
             self.a.recent_highent.setdefault(pid, []).append((self.a.clock.now(), path))
         ext = os.path.splitext(str(path))[1].lower()
@@ -422,7 +423,7 @@ class ProtectedFS:
         self._gate(pid); self.a.tripwire_gate(pid, "write", path)
         rid, before = self._before(pid, "write", path)
         Path(path).write_bytes(data)
-        if rid: self.a.journal.after(rid, path)
+        if rid: self.a.journal.after(rid, path, content=data)
         sig = self.a.detector.classify(before, data[:self.SAMPLE]) if before is not None else ()
         self.a.emit("file", "write", pid, str(path), sig)
         self._observe(pid, path, sig)

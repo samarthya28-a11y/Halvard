@@ -96,6 +96,13 @@ class MaintenanceAndApprovalTests(unittest.TestCase):
         stored = {**a.engine.pending, **getattr(a.engine, "deferred", {})}
         self.assertTrue(stored, res.message)
 
+    def test_a_deferred_action_is_asked_again_after_the_window_ends_and_not_before(self):
+        a, h, clock, _ = make_agent(tempfile.mkdtemp())
+        a.engine.auth.policy.maintenance_windows[a.device_id] = (clock.now() - 10, clock.now() + 1000)
+        res = a.engine.request(ActionRequest("isolate_host", Principal("sam", "it_admin"), [a.device_id], "window")); self.assertEqual(res.status, "deferred"); self.assertIn(res.action_id, a.engine.deferred)
+        self.assertEqual(a.engine.offer_due(), []); self.assertFalse(h.isolated)                          # the window is still open: nothing runs
+        clock.advance(1001); a.heartbeat(); self.assertTrue(h.isolated); self.assertEqual(a.engine.deferred, {})      # the next heartbeat after it ends runs it
+
     def test_the_requester_cannot_approve_their_own_production_isolation(self):
         a, _, _, _ = make_agent(tempfile.mkdtemp(), asset_class="production")
         res = a.engine.request(ActionRequest("isolate_host", Principal("sam", "it_admin"), [a.device_id], "contain"))

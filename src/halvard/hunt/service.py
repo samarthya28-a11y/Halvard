@@ -11,6 +11,12 @@ from . import ql, nl
 from ..tenancy import TenantIsolationError
 
 SIMPLE_FIELDS = ["ts", "device", "kind", "op", "proc", "path", "dst_ip"]
+_HOME = re.compile(r"(?i)(^|[/\\])(users|home)([/\\])[^/\\]+")
+
+
+def hide_person(path):
+    """A home-folder name is a person's name. IT staff see the shape of the path (Users/<user>/Finance/q3.xlsx), not whose it is."""
+    return _HOME.sub(lambda m: f"{m.group(1)}{m.group(2)}{m.group(3)}<user>", path) if path else path
 SIMPLE_WINDOW_S = 7 * 86400
 HQL_ROLES = {"analyst"}
 
@@ -49,7 +55,7 @@ class HuntService:
         return {**info, **built, **res}
 
     def simple(self, ctx, words, days=7):
-        """Keyword search for IT staff. Fixed columns only; never command lines or user names."""
+        """Keyword search for IT staff. Fixed columns only; never command lines or user names, and the name in a home-folder path (Users/<name>/...) is hidden too."""
         if ctx.role not in HQL_ROLES | {"it_admin"}: self._deny(ctx, "search telemetry")
         terms = [w for w in re.split(r"\s+", words.strip()) if w][:5]
         if not terms: return {"rows": [], "message": "Type a device name, a program name or part of a file path."}
@@ -59,7 +65,7 @@ class HuntService:
             c = ("or", ("or", ("or", ("cmp", "device", "=", t), ("cmp", "proc", "contains", t)), ("cmp", "path", "contains", t)), ("cmp", "dst_ip", "=", t))
             ast = c if ast is None else ("and", ast, c)
         rows, trunc = self.events.query_rows(self.ctx_for(ctx), ast, since, limit=200)
-        out = [{k: r[k] for k in SIMPLE_FIELDS} for r in rows]
+        out = [{**{k: r[k] for k in SIMPLE_FIELDS}, "path": hide_person(r["path"])} for r in rows]
         self._log(ctx, "hunt.simple_search", {"terms": len(terms), "rows": len(out)})
         return {"rows": out, "truncated": trunc, "message": "" if out else "Nothing matched in the last 7 days. Older events are available to analysts."}
 

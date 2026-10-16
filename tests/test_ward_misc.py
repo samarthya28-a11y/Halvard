@@ -62,7 +62,7 @@ class WardMiscTests(unittest.TestCase):
         """An asynchronous sensor can lose a race with a rename; that must not be an error (found by a flaky Linux-lane run)."""
         from halvard.relay import journal as J
         rid, _ = self.a.journal.before(1, "write", os.path.join(self.tmp, "gone.txt")); real = J.fingerprint
-        J.fingerprint = lambda p: (_ for _ in ()).throw(FileNotFoundError(p))
+        J.fingerprint = lambda p, *a, **k: (_ for _ in ()).throw(FileNotFoundError(p))
         try: pathlib.Path(self.tmp, "gone.txt").write_text("x", encoding="utf-8"); self.a.journal.after(rid, os.path.join(self.tmp, "gone.txt"))
         finally: J.fingerprint = real
 

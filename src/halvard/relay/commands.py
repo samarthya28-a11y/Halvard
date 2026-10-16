@@ -1,7 +1,7 @@
 """Signed, expiring, single-use commands from the control plane to a device.
 
 The device does not trust the network: it verifies the signature, the target device, the expiry and a one-time nonce,
-and it re-checks the approvals against its OWN copy of the authority matrix for its OWN asset class. A compromised or
+and it re-checks the approvals against its OWN copy of the authority matrix for its OWN asset class: the level carried, and that enough DISTINCT approvers hold a role the matrix allows to approve this action. A compromised or
 careless control plane therefore cannot talk a clinical or production device into an action that needs more approvals
 than the command carries. Reference limitation: HMAC with a per-device key; production uses an asymmetric signature.
 """

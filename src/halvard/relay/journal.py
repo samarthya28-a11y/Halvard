@@ -10,10 +10,20 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
-def fingerprint(path):
-    """Cheap post-state marker (size, mtime_ns). Detects 'someone changed it after the incident' without re-reading."""
-    st = os.stat(path)
-    return f"{st.st_size}:{st.st_mtime_ns}"
+FULL_HASH_LIMIT = 4 << 20        # files up to this size are compared by their whole content; larger ones by size, start, end and modification time
+SAMPLE = 64 << 10
+
+
+def fingerprint(path, read=True):
+    """Post-state marker used to decide whether someone changed a file after the incident. Content decides, not the clock: a later edit that keeps the same
+    size and modification time is still an edit, and a pure timestamp touch is not. (Files above FULL_HASH_LIMIT use size, the first and last 64 KiB, and the
+    modification time, which can miss an edit confined to the middle that also resets the time; that limit is stated, not hidden.)"""
+    st = os.stat(path); h = hashlib.sha256()
+    if not read: return f"stat:{st.st_size}:{st.st_mtime_ns}"     # a kernel-hook sensor must not open files it is judging (that deadlocks the hook), so it records the weaker size+time marker and says so
+    with open(path, "rb") as f:
+        if st.st_size <= FULL_HASH_LIMIT: h.update(f.read()); return f"{st.st_size}:{h.hexdigest()[:32]}"
+        h.update(f.read(SAMPLE)); f.seek(max(0, st.st_size - SAMPLE)); h.update(f.read(SAMPLE))
+    return f"{st.st_size}:{st.st_mtime_ns}:{h.hexdigest()[:32]}"
 
 
 def sha(path):
@@ -131,9 +141,10 @@ class Journal:
         self.db.execute("UPDATE rec SET op='write' WHERE id=? AND op='open'", (rec_id,))
 
     @_locked
-    def after(self, rec_id, final_path):
+    def after(self, rec_id, final_path, read=True, content=None):
         try:
-            post = fingerprint(final_path) if os.path.isfile(final_path) else None
+            if content is not None and len(content) <= FULL_HASH_LIMIT and os.path.isfile(final_path): post = f"{len(content)}:{hashlib.sha256(content).hexdigest()[:32]}"      # the caller already holds the bytes it wrote: no second read
+            else: post = fingerprint(final_path, read) if os.path.isfile(final_path) else None
         except OSError:
             post = None          # renamed or removed between the check and the stat: an asynchronous sensor can lose that race
         self.db.execute("UPDATE rec SET post=? WHERE id=?", (post, rec_id))   # committed with the next record or on flush
@@ -159,7 +170,7 @@ class Journal:
                 expected[path] = post
         tainted = set()
         for p, exp in expected.items():
-            cur = fingerprint(p) if os.path.isfile(p) else None
+            cur = fingerprint(p, read=not str(exp).startswith("stat:")) if os.path.isfile(p) else None      # compare like with like
             if cur != exp:
                 tainted.add(p)    # changed by something else after the incident: do not overwrite
         rep.skipped_changed_after = sorted(tainted)

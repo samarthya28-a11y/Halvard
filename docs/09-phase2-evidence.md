@@ -97,7 +97,7 @@ Incident page for the first burst:
 Incident on LX-1: a program was scrambling files
 
 WHAT IS HAPPENING
-  python3 overwrote files with unreadable data. Confidence 60%.
+  python3 overwrote files with unreadable data. Confidence 60% (rule-assigned, not a calibrated probability).
   Evidence: 8 existing files overwritten with unrecognizable data in 0s; original file signatures were destroyed.
   Halvard decided this on the computer itself (connected).
 
