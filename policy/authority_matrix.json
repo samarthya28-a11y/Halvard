@@ -1,0 +1,1566 @@
+{
+  "actions": [
+    {
+      "approval": {
+        "clinical": "two_person",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [],
+      "destructive": true,
+      "features": "F037",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "isolate_host",
+      "label": "Isolate host (management channel stays up)",
+      "module": "Relay",
+      "note": "Clinical-class devices need two people because isolating a bedside or imaging system has patient impact.",
+      "request_roles": [
+        "it_admin",
+        "analyst",
+        "service_desk"
+      ],
+      "reversal": "release_isolation",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [],
+      "destructive": false,
+      "features": "F037",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "propose_only",
+      "key": "release_isolation",
+      "label": "Release host isolation",
+      "module": "Relay",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "isolate_host",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "two_person",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [
+        "in-memory state of the stopped process"
+      ],
+      "destructive": true,
+      "features": "F038",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "stop_process",
+      "label": "Stop process",
+      "module": "Relay",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "none (process restarts only if the user or a service starts it)",
+      "reversible": false
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [],
+      "destructive": true,
+      "features": "F038",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "quarantine_file",
+      "label": "Quarantine file",
+      "module": "Relay",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "release_quarantine",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [],
+      "destructive": false,
+      "features": "F038/F070",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "keeper": "propose_only",
+      "key": "release_quarantine",
+      "label": "Release file from quarantine",
+      "module": "Relay",
+      "note": "Service desk may request; a file flagged malicious by detonation needs analyst approval.",
+      "request_roles": [
+        "it_admin",
+        "analyst",
+        "service_desk"
+      ],
+      "reversal": "quarantine_file",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "two_person",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [
+        "anything the incident changed after the snapshot window"
+      ],
+      "destructive": true,
+      "features": "F038",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "remove_persistence",
+      "label": "Remove persistence (startup items, tasks, services)",
+      "module": "Relay",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "config_rollback",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [
+        "files changed outside the journal's quota window",
+        "files the journal skipped (reported in the recovery note)"
+      ],
+      "destructive": true,
+      "features": "F040",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "journal_rollback",
+      "label": "Restore files from the Halvard journal",
+      "module": "Relay",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst",
+        "service_desk"
+      ],
+      "reversal": "undo_action (a pre-rollback snapshot of current files is kept for the retention window)",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "two_person",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [
+        "changes made by someone else after the incident"
+      ],
+      "destructive": true,
+      "features": "F041",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "config_rollback",
+      "label": "Roll back registry, startup and security-config changes",
+      "module": "Relay",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "undo_action",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "two_person",
+        "privileged": "two_person",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [
+        "effects of the command"
+      ],
+      "destructive": true,
+      "features": "F042",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "keeper": "propose_only",
+      "key": "remote_command",
+      "label": "Remote command or script (time-limited, fully recorded)",
+      "module": "Relay",
+      "note": "Never auto. Expires at the time limit. Keeper may only run Halvard-signed runbook commands.",
+      "request_roles": [
+        "analyst",
+        "it_admin"
+      ],
+      "reversal": "none (depends on the command; the command text and output are recorded)",
+      "reversible": false
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [],
+      "destructive": false,
+      "features": "F026",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "propose_only",
+      "key": "collect_forensics",
+      "label": "Collect memory or disk evidence",
+      "module": "Relay",
+      "note": "May contain personal data; collection scope and retention are recorded.",
+      "request_roles": [
+        "analyst",
+        "it_admin"
+      ],
+      "reversal": "delete_collection (after legal hold clears)",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "two_person",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [
+        "per step"
+      ],
+      "destructive": true,
+      "features": "F043",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "run_playbook_step",
+      "label": "Playbook step (inherits the step's own action rule)",
+      "module": "Relay",
+      "note": "The strictest rule among the steps applies; dangerous steps wait for the configured approver.",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "per step",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "two_person",
+        "privileged": "two_person",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [
+        "per component"
+      ],
+      "destructive": true,
+      "features": "F044",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "contain_everywhere",
+      "label": "One containment across device, user, mailbox, token, workload",
+      "module": "Relay",
+      "note": "Strictest component rule applies.",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "undo_action per component",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [],
+      "destructive": false,
+      "features": "F045",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "propose_only",
+      "key": "undo_action",
+      "label": "Undo an earlier action",
+      "module": "Relay",
+      "note": "Before it runs, Halvard states what cannot be undone.",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "re-run original",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "two_person",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "approve_roles": [
+        "it_admin"
+      ],
+      "cannot_undo": [
+        "data newer than the restore point"
+      ],
+      "destructive": true,
+      "features": "F047",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "keeper": "propose_only",
+      "key": "backup_restore_signal",
+      "label": "Ask the backup product to restore a known-clean copy",
+      "module": "Relay",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "none (restore is performed by the backup product)",
+      "reversible": false
+    },
+    {
+      "approval": {
+        "clinical": "auto",
+        "privileged": "auto",
+        "production": "auto",
+        "standard": "auto"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [],
+      "destructive": false,
+      "features": "F048",
+      "floor": {
+        "clinical": "auto",
+        "privileged": "auto",
+        "production": "auto",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "legal_hold",
+      "label": "Freeze evidence before cleanup",
+      "module": "Relay",
+      "note": "Holding is always safe to automate. It blocks cleanup actions on the case until released.",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "release_legal_hold",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "two_person",
+        "privileged": "two_person",
+        "production": "two_person",
+        "standard": "two_person"
+      },
+      "approve_roles": [
+        "owner",
+        "it_admin"
+      ],
+      "cannot_undo": [],
+      "destructive": false,
+      "features": "F048",
+      "floor": {
+        "clinical": "two_person",
+        "privileged": "two_person",
+        "production": "two_person",
+        "standard": "two_person"
+      },
+      "keeper": "never",
+      "key": "release_legal_hold",
+      "label": "Release a legal hold",
+      "module": "Relay",
+      "note": "",
+      "request_roles": [
+        "owner",
+        "it_admin"
+      ],
+      "reversal": "legal_hold",
+      "reversible": false
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "approve_roles": [
+        "it_admin",
+        "site_manager"
+      ],
+      "cannot_undo": [],
+      "destructive": false,
+      "features": "F049",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "keeper": "propose_only",
+      "key": "override_maintenance_window",
+      "label": "Act during a maintenance window on a named system",
+      "module": "Relay",
+      "note": "Critical cases are never delayed by a window; this override is for disruptive actions on high-confidence-not-critical cases.",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "none",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "two_person",
+        "privileged": "two_person",
+        "production": "two_person",
+        "standard": "two_person"
+      },
+      "approve_roles": [
+        "it_admin",
+        "owner"
+      ],
+      "cannot_undo": [],
+      "destructive": true,
+      "features": "F050",
+      "floor": {
+        "clinical": "two_person",
+        "privileged": "two_person",
+        "production": "two_person",
+        "standard": "two_person"
+      },
+      "keeper": "never",
+      "key": "break_glass_local",
+      "label": "Local break-glass recovery (control plane unreachable)",
+      "module": "Relay",
+      "note": "Two local holders; every step is written to a local sealed log and replayed into Ledger.",
+      "request_roles": [
+        "it_admin"
+      ],
+      "reversal": "record replayed to Ledger when connectivity returns",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [
+        "work in progress in the revoked session"
+      ],
+      "destructive": true,
+      "features": "F039",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "revoke_sessions",
+      "label": "Revoke sessions and tokens at the identity provider",
+      "module": "Signet",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst",
+        "service_desk"
+      ],
+      "reversal": "user signs in again",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "two_person",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [],
+      "destructive": true,
+      "features": "F058",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "disable_account",
+      "label": "Disable an account",
+      "module": "Signet",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "enable_account",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "two_person",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [],
+      "destructive": false,
+      "features": "F058",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "keeper": "propose_only",
+      "key": "enable_account",
+      "label": "Re-enable an account",
+      "module": "Signet",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst",
+        "service_desk"
+      ],
+      "reversal": "disable_account",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "two_person",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [
+        "the previous credential"
+      ],
+      "destructive": true,
+      "features": "F039",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "reset_credentials",
+      "label": "Force password reset and rotate secrets",
+      "module": "Signet",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst",
+        "service_desk"
+      ],
+      "reversal": "none (previous credential is invalidated)",
+      "reversible": false
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [],
+      "destructive": true,
+      "features": "F056",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "force_mfa_reregistration",
+      "label": "Require MFA re-registration",
+      "module": "Signet",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst",
+        "service_desk"
+      ],
+      "reversal": "user re-registers",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [
+        "data syncs that ran under the grant"
+      ],
+      "destructive": true,
+      "features": "F056",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "revoke_oauth_consent",
+      "label": "Revoke an OAuth consent or third-party app grant",
+      "module": "Signet",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "re-consent by the user",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "two_person",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "approve_roles": [
+        "it_admin"
+      ],
+      "cannot_undo": [],
+      "destructive": true,
+      "features": "F053",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "keeper": "propose_only",
+      "key": "remove_standing_privilege",
+      "label": "Remove standing privilege (convert to just-in-time)",
+      "module": "Signet",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "restore_entitlement",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "two_person",
+        "privileged": "two_person",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "approve_roles": [
+        "it_admin"
+      ],
+      "cannot_undo": [
+        "jobs that failed while it was disabled"
+      ],
+      "destructive": true,
+      "features": "F054",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "keeper": "propose_only",
+      "key": "disable_service_account",
+      "label": "Disable a service account or non-human identity",
+      "module": "Signet",
+      "note": "Service accounts break production quietly, so there is no auto route.",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "enable_account",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "auto",
+        "privileged": "auto",
+        "production": "auto",
+        "standard": "auto"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [
+        "a sent notification"
+      ],
+      "destructive": false,
+      "features": "F058",
+      "floor": {
+        "clinical": "auto",
+        "privileged": "auto",
+        "production": "auto",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "notify_manager",
+      "label": "Notify the person's manager through an approved channel",
+      "module": "Signet",
+      "note": "Only to channels the customer pre-approved; message uses the plain-language template.",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "none",
+      "reversible": false
+    },
+    {
+      "approval": {
+        "clinical": "auto",
+        "privileged": "auto",
+        "production": "auto",
+        "standard": "auto"
+      },
+      "approve_roles": [
+        "it_admin"
+      ],
+      "cannot_undo": [],
+      "destructive": false,
+      "features": "F055",
+      "floor": {
+        "clinical": "auto",
+        "privileged": "auto",
+        "production": "auto",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "set_device_health_signal",
+      "label": "Publish device-health signal to the identity provider",
+      "module": "Signet",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "clear signal",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "approve_roles": [
+        "it_admin",
+        "owner"
+      ],
+      "cannot_undo": [],
+      "destructive": false,
+      "features": "F059",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "keeper": "never",
+      "key": "start_session_recording",
+      "label": "Record a privileged session",
+      "module": "Signet",
+      "note": "Precondition: policy exists, employee notice was issued, and the session is privileged. Refused otherwise.",
+      "request_roles": [
+        "analyst",
+        "it_admin"
+      ],
+      "reversal": "stop_recording; recording deleted per retention",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "auto",
+        "privileged": "auto",
+        "production": "auto",
+        "standard": "auto"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [],
+      "destructive": false,
+      "features": "F065",
+      "floor": {
+        "clinical": "auto",
+        "privileged": "auto",
+        "production": "auto",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "clawback_message",
+      "label": "Pull a delivered message out of mailboxes (moved to recoverable quarantine, not deleted)",
+      "module": "Courier",
+      "note": "Non-destructive by design: copies go to a recoverable quarantine. Anything already read, forwarded or saved elsewhere is not recalled; the result lists it.",
+      "request_roles": [
+        "it_admin",
+        "analyst",
+        "service_desk"
+      ],
+      "reversal": "release_message",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "notify",
+        "privileged": "notify",
+        "production": "notify",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [],
+      "destructive": false,
+      "features": "F070",
+      "floor": {
+        "clinical": "auto",
+        "privileged": "auto",
+        "production": "auto",
+        "standard": "auto"
+      },
+      "keeper": "propose_only",
+      "key": "release_message",
+      "label": "Return a quarantined message to the mailbox",
+      "module": "Courier",
+      "note": "Service desk may release low-risk messages alone. A message with a malicious verdict also needs an analyst or administrator to approve (the handler raises the requirement).",
+      "request_roles": [
+        "it_admin",
+        "analyst",
+        "service_desk"
+      ],
+      "reversal": "clawback_message",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "two_person",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "approve_roles": [
+        "it_admin"
+      ],
+      "cannot_undo": [
+        "the deleted messages"
+      ],
+      "destructive": true,
+      "features": "F065",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "keeper": "propose_only",
+      "key": "purge_message",
+      "label": "Permanently delete quarantined messages",
+      "module": "Courier",
+      "note": "Only after the retention window and legal-hold check. Separate from clawback so that pulling a message never destroys evidence.",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "none (deleted)",
+      "reversible": false
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [],
+      "destructive": true,
+      "features": "F066",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "remove_mailbox_rule",
+      "label": "Remove a mailbox rule (forwarding, hiding, deleting)",
+      "module": "Courier",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst",
+        "service_desk"
+      ],
+      "reversal": "restore_mailbox_rule (rule is kept for the retention window)",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [
+        "mail already forwarded"
+      ],
+      "destructive": true,
+      "features": "F066",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "disable_forwarding",
+      "label": "Turn off mailbox forwarding to outside addresses",
+      "module": "Courier",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst",
+        "service_desk"
+      ],
+      "reversal": "re-enable forwarding",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [],
+      "destructive": true,
+      "features": "F064",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "block_sender",
+      "label": "Block a sender or look-alike domain tenant-wide",
+      "module": "Courier",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "unblock_sender",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [
+        "the message once it is sent"
+      ],
+      "destructive": false,
+      "features": "F084",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "keeper": "propose_only",
+      "key": "release_outbound_message",
+      "label": "Send a message that Vaultline held before it left",
+      "module": "Courier",
+      "note": "Someone other than the sender approves; the sender can instead give a reason when the rule allows it (that path is recorded but is not this action).",
+      "request_roles": [
+        "it_admin",
+        "analyst",
+        "service_desk"
+      ],
+      "reversal": "none (a sent message cannot be recalled)",
+      "reversible": false
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "cannot_undo": [
+        "reads that anonymous visitors made before it was blocked"
+      ],
+      "destructive": true,
+      "features": "F079",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "block_public_access",
+      "label": "Block all public access to a storage bucket",
+      "module": "Atlas",
+      "note": "A bucket that serves a public website will stop serving it; the preview says so when the bucket is tagged as one.",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "restore the earlier public-access settings",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "two_person",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin"
+      ],
+      "cannot_undo": [],
+      "destructive": true,
+      "features": "F079",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "restrict_security_group_rule",
+      "label": "Close a firewall rule that allows access from anywhere",
+      "module": "Atlas",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "authorize the same rule again",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin"
+      ],
+      "cannot_undo": [
+        "jobs that failed while it was off"
+      ],
+      "destructive": true,
+      "features": "F079",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "propose_only",
+      "key": "disable_access_key",
+      "label": "Turn off a cloud access key",
+      "module": "Atlas",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "turn the key back on",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "approve_roles": [
+        "it_admin"
+      ],
+      "cannot_undo": [
+        "software that only speaks the old service fails until updated"
+      ],
+      "destructive": true,
+      "features": "F079",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "propose_only",
+      "key": "enforce_imdsv2",
+      "label": "Require the safer metadata service on an instance",
+      "module": "Atlas",
+      "note": "",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "allow the old metadata service again",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "two_person",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin"
+      ],
+      "cannot_undo": [],
+      "destructive": true,
+      "features": "F095",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "propose_only",
+      "key": "install_update",
+      "label": "Install a software update on a device",
+      "module": "Glass",
+      "note": "The program restarts. Production and privileged hosts wait for an approver; clinical hosts need two people. A patch ring never skips this.",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "rollback_update",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "two_person",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin"
+      ],
+      "cannot_undo": [
+        "work lost while the program restarted"
+      ],
+      "destructive": true,
+      "features": "F095",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "propose_only",
+      "key": "rollback_update",
+      "label": "Put a program back on its previous version",
+      "module": "Glass",
+      "note": "A failed pilot ring rolls back on its own only where this cell is auto or notify and the 'patch_failure_rollback' pattern was accepted.",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "install_update",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin"
+      ],
+      "cannot_undo": [
+        "people or jobs that relied on the closed port or the switched-off program, while it was in place"
+      ],
+      "destructive": true,
+      "features": "F094",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "propose_only",
+      "key": "apply_compensating_control",
+      "label": "Apply a temporary protection while a patch cannot land",
+      "module": "Glass",
+      "note": "Every temporary protection has an expiry. When it passes, the protection stays in force and the item returns to the top of the list until a person extends it, patches, or signs a risk acceptance.",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "remove the protection (undo)",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin"
+      ],
+      "cannot_undo": [
+        "work the agent was doing for people while suspended"
+      ],
+      "destructive": true,
+      "features": "F106",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "within_auto",
+      "key": "suspend_ai_agent",
+      "label": "Suspend an AI agent (every tool call is refused until resumed)",
+      "module": "Lumen",
+      "note": "Suspending is the safe direction, so standard agents may be suspended automatically under the 'ai_agent_suspend' pattern. Agents whose asset class is production or privileged need an approver first.",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "resume the agent (undo)",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "notify"
+      },
+      "approve_roles": [
+        "it_admin"
+      ],
+      "cannot_undo": [],
+      "destructive": false,
+      "features": "F109/F111",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "propose_only",
+      "key": "place_tripwires",
+      "label": "Place tripwire files on devices",
+      "module": "Hearth",
+      "note": "Creates generated filler files; never over an existing file and never in an operating-system folder. A program that changes an encryption tripwire is stopped by Ward.",
+      "request_roles": [
+        "it_admin"
+      ],
+      "reversal": "remove the tripwires (undo)",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "approve_roles": [
+        "it_admin"
+      ],
+      "cannot_undo": [],
+      "destructive": false,
+      "features": "F109",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "keeper": "propose_only",
+      "key": "create_decoy_identity",
+      "label": "Create a decoy account or key",
+      "module": "Hearth",
+      "note": "The decoy gets no roles, groups or permissions. A name that already exists is refused.",
+      "request_roles": [
+        "it_admin"
+      ],
+      "reversal": "delete the decoy (undo)",
+      "reversible": true
+    },
+    {
+      "approval": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "approve"
+      },
+      "approve_roles": [
+        "it_admin"
+      ],
+      "cannot_undo": [
+        "anything your network team already did with it"
+      ],
+      "destructive": false,
+      "features": "F076",
+      "floor": {
+        "clinical": "approve",
+        "privileged": "approve",
+        "production": "approve",
+        "standard": "auto"
+      },
+      "keeper": "propose_only",
+      "key": "request_network_change",
+      "label": "File a segmentation change request in the customer's network tool",
+      "module": "Harbor",
+      "note": "Halvard only files the request; it never changes a firewall or switch. Approval is for sending it, not for applying it.",
+      "request_roles": [
+        "it_admin",
+        "analyst"
+      ],
+      "reversal": "withdraw the request (undo)",
+      "reversible": true
+    }
+  ],
+  "classes": [
+    "standard",
+    "production",
+    "clinical",
+    "privileged"
+  ],
+  "roles": {
+    "analyst": "Cases, hunting, containment. Requests and runs actions; approves within limits.",
+    "auditor": "Read-only evidence, time-bounded. Never sees raw employee content.",
+    "it_admin": "Rollout, policy, exceptions, device health. Approves most Relay actions.",
+    "keeper_crew": "Halvard crew. Bound by this matrix. Just-in-time elevation required.",
+    "owner": "Risk, spend, renewals, board pack. No device actions.",
+    "service_desk": "Password-safe actions, quarantine release, 'is this laptop okay?'. No raw telemetry.",
+    "service_provider": "Many tenants, hard walls. Acts only inside a tenant after a delegated grant.",
+    "site_manager": "Local impact only for their site. Approves maintenance windows and clinical-site actions."
+  },
+  "version": 1
+}

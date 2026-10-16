@@ -1,0 +1,10 @@
+{
+  "description": "SAMPLE catalog of AI tools for the reference build. Names and domains are fictional (example-ai.test). 'trains_on_inputs', 'retention_days' and 'enterprise_tier' are what the CUSTOMER attests after reading the vendor's terms; Halvard does not verify vendor claims. A production tenant maintains its own catalog.",
+  "synced_with_upstream": null,
+  "tools": [
+    {"key": "askly", "name": "Askly (chat assistant)", "kind": "chat", "domains": ["askly.example-ai.test"], "products": ["askly-desktop"], "trains_on_inputs": null, "retention_days": null, "enterprise_tier": false},
+    {"key": "codepal", "name": "CodePal (coding assistant)", "kind": "code_assistant", "domains": ["codepal.example-ai.test"], "products": ["codepal-plugin"], "trains_on_inputs": true, "retention_days": 30, "enterprise_tier": false},
+    {"key": "pixelmind", "name": "PixelMind (image generation)", "kind": "image", "domains": ["pixelmind.example-ai.test"], "products": [], "trains_on_inputs": null, "retention_days": null, "enterprise_tier": false},
+    {"key": "northwind-ai", "name": "Northwind AI Workspace", "kind": "chat", "domains": ["workspace.northwind-ai.example-ai.test"], "products": [], "trains_on_inputs": false, "retention_days": 0, "enterprise_tier": true}
+  ]
+}

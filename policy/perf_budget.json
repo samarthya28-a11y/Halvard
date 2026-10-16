@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "_comment": "Published ceilings for the Ward agent on a five-year-old office PC (2 cores, 8 GB RAM, SATA SSD). Enforced by PerfTests in tests/test_setup_coverage_perf.py. The reference build is Python; the native agent must meet the same numbers on the same trace.",
+  "cpu_average_percent_of_one_core_max": 2.0,
+  "added_latency_p99_microseconds_max": 20000,
+  "memory_mb_max": 150,
+  "journal_disk_mb_per_workday_max": 512,
+  "journal_quota_mb_default": 2048,
+  "install_footprint_mb_max": 200,
+  "assumptions": {
+    "write_class_events_per_workday": 300000,
+    "workday_seconds": 28800,
+    "slow_machine_factor": 2.0,
+    "note": "Measured on a 4-core cloud VM; slow_machine_factor 2.0 models a 2-core five-year-old PC until a real-hardware CI lane exists. CPU = agent overhead (hooked minus unhooked identical operations). Added latency p99 includes first-capture journal copies. Median of 3 runs. The reference build is Python; the native agent must meet the same trace."
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "description": "SYNTHETIC sample advisories for the reference build. Identifiers start with HLV-SAMPLE and describe no real product or flaw. A production tenant imports a real feed (NVD/vendor advisories plus a known-exploited list); none is bundled or claimed here.",
+  "synced_with_upstream": null,
+  "advisories": [
+    {"id": "HLV-SAMPLE-0001", "product": "webserver", "affected_below": "2.4.58", "base_severity": 9.1, "exploit": "exploited_in_wild", "surface": "network", "port": 443,
+     "summary": "Remote code execution in the web server's request parser", "workaround": "restrict_exposure"},
+    {"id": "HLV-SAMPLE-0002", "product": "pdfviewer", "affected_below": "11.2", "base_severity": 7.8, "exploit": "public_exploit", "surface": "local", "port": null,
+     "summary": "A crafted document runs code when opened", "workaround": "block_application"},
+    {"id": "HLV-SAMPLE-0003", "product": "vpnclient", "affected_below": "5.0.1", "base_severity": 8.1, "exploit": "none", "surface": "network", "port": null,
+     "summary": "Privilege escalation through the client's update service", "workaround": "block_application"},
+    {"id": "HLV-SAMPLE-0004", "product": "sshd", "affected_below": "9.3", "base_severity": 6.5, "exploit": "none", "surface": "network", "port": 22,
+     "summary": "Pre-authentication information disclosure", "workaround": "restrict_exposure"},
+    {"id": "HLV-SAMPLE-0005", "product": "officesuite", "affected_below": "16.9", "base_severity": 7.0, "exploit": "public_exploit", "surface": "local", "port": null,
+     "summary": "Macro-free document runs code when opened", "workaround": "block_application"}
+  ]
+}
