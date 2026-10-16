@@ -230,3 +230,44 @@ The object-path mutant being killed does not contradict H5. That mutant relaxes 
 ## Fixes
 
 None. Waiting for "go". Source files are unchanged.
+
+
+---
+
+# Resolution (after the fixes)
+
+Fixes are on branch `crosscheck-fixes`. All 42 cross-check tests now pass, the author's tests pass, and nothing was skipped or weakened. Test changes, each with its reason:
+
+| Test | Change | Why |
+|---|---|---|
+| `test_actions` executed-record test | reads `reason` from the private half | the reason is free text and can name a person (H4); an auditor still sees it exists |
+| `test_a_finding_that_bridges_two_cases_merges_them` | two people who merely share a computer are no longer one case; a new test covers findings about a shared computer | H11 |
+| `test_journal_after_survives_a_file_that_vanishes...` | the stub accepts the new `fingerprint(path, read)` signature | H12 |
+| `test_crosscheck_p5` unreadable PDF | accepts a justification prompt as well as a block | H2: the substance is "never a silent allow"; a recorded reason may unlock it |
+| `test_crosscheck_p1` tenant id | creation of `../t/globex` is refused (ValueError) instead of failing at write | H5: stops it earlier |
+| setup progress text | "6 of 6 setup checks passed ... in the reference build" | prose overclaim |
+
+| Finding | Fix |
+|---|---|
+| H1 card separators | dots, newlines, thin and no-break spaces split groups; a window of several groups needs short groups, so two long numbers are not one card |
+| H2 unread PDF clean | a file Halvard cannot read is treated as confidential and the message says so; a reason can unlock it, it never passes silently |
+| H3 extra `@` | one helper, `addr.domain_of`; an address without exactly one `@` has no domain and counts as outside; used by Courier, Vaultline and the AI gateway |
+| H4 public audit fields | `reason`, `summary`, `targets`, `sample_paths`, `process` moved to the private half; action scope shows file paths only as tokens |
+| H5 tenant id | an id is `[A-Za-z0-9][A-Za-z0-9_-]{0,63}`; anything else is refused at creation |
+| H6 `import_bundle`, `external_call` | now take the calling Member and check enrolment (and, for bundles, owner or IT admin); a non-member is refused. `export` still takes a company id: it moves nothing and only reports allowed or refused |
+| H7 export after revoke | export refuses while the company is locked |
+| H8 command roles | the device counts only approvers whose role the matrix allows for that action |
+| H9 maintenance window | only containment (isolate, stop, quarantine, legal hold) is critical; updates and rollbacks are deferred by a window |
+| H10 Keeper region | the grant's region is checked in the gate |
+| H11 shared computer | the walk never continues through a shared device; a shared device joins only findings directly about it |
+| H12 journal fingerprint | content hash (whole file up to 4 MiB); a kernel-hook sensor keeps size+time because opening files it judges deadlocks the hook; the privileged Linux lane caught this during the fix |
+| M1 justification | capped at 60 minutes |
+| M2 deferral | deferred actions are stored and asked again by `offer_due()` (agent heartbeat, control-plane cycle) |
+| M3 attachment payment | attachment text is read for payment wording and bank accounts |
+| M4 homoglyphs | more letters in the table, plus a wildcard match for internationalised names that line up with a protected name |
+| M5 IT search | the name in a home-folder path is hidden |
+| M6 redaction | case-insensitive |
+| M7 symlink | tripwire keys resolve links; the gate costs nothing when a device has no tripwires |
+| Low: prose | setup messages, the demo confidence line, and four docstrings no longer claim what the reference build does not do |
+
+New mutations: 23 (all killed; three survived the first pass and each got a test). Full sweep result: see the end of this file once it has run.
