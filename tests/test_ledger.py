@@ -63,6 +63,12 @@ class LedgerTests(unittest.TestCase):
         self.assertNotEqual(vis[0]["actor_token"], vis[1]["actor_token"])
         self.assertNotEqual(vis[0]["actor_token"], [e for e in e2["entries"] if not e.get("elided")][0]["actor_token"])
 
+    def test_an_address_in_a_public_field_is_scrubbed(self):
+        log = AuditLog(os.path.join(self.tmp, "s.log"), "acme", KEY, ManualClock())
+        log.append("relay.action_executed", "u-1", "analyst", "LT-1", {"action": "x", "outcome": "mail to pat.lee@example.com held"})
+        rec = json.loads(pathlib.Path(log.path).read_text(encoding="utf-8").splitlines()[0])
+        self.assertNotIn("pat.lee@example.com", json.dumps(rec["public"]))
+
 
 if __name__ == "__main__":
     unittest.main()
