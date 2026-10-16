@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo/halvard-logo.svg" alt="Halvard: Corporate Assurance Fabric" width="560"></p>
+
 # Halvard: Corporate Assurance Fabric (reference build, Phases 1 to 8)
 
 Read in this order: `docs/01-narrative.md` → `02-assurance-graph.md` → `03-authority-matrix.md` → `04-threat-model.md` →
