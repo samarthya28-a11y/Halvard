@@ -4,6 +4,7 @@ Signals: display name of a known executive or colleague on an outside address; a
 partner's; Reply-To pointing somewhere else; failed authentication while claiming the company's own domain; first contact from
 that sender; payment wording; and a bank account that differs from the one on file for that supplier (compared by hash).
 """
+from ..addr import domain_of
 import hashlib, re
 from dataclasses import dataclass, field
 
@@ -49,7 +50,7 @@ class ImpersonationDetector:
         text = f"{msg.subject}\n{msg.body}"; pay = bool(PAYMENT.search(text)); urgent = bool(URGENCY.search(text))
         spoof_name = outside and msg.display_name.lower() in self.names and dom not in self.partners
         look = lookalike_of(dom, self.own | self.partners)
-        reply_diff = bool(msg.reply_to and msg.reply_to.rsplit("@", 1)[-1].lower() != dom)
+        reply_diff = bool(msg.reply_to and domain_of(msg.reply_to) != dom)
         claims_own_failed = (dom in self.own) and msg.auth.get("dmarc") != "pass"
         if claims_own_failed:
             out.append(Signal("spoofed_own_domain", 0.9, f"the message says it is from {dom} but failed sender checks (SPF {msg.auth['spf']}, DKIM {msg.auth['dkim']}, DMARC {msg.auth['dmarc']})",

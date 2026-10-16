@@ -17,6 +17,7 @@ approver role. Targets (paths, addresses) go to private audit fields. Payload co
 import fnmatch, hashlib, hmac, json, secrets
 from dataclasses import dataclass, field
 
+from ..addr import domain_of
 from ..cases import CaseFinding
 from ..vaultline.inspection import InspectionNotAllowed
 from ..vaultline.dlp import RANK, SECRETS
@@ -124,7 +125,7 @@ class AgentGateway:
 
     def action_class(self, action, params):
         ac = ACTION_CLASS.get(action)
-        if action == "send_mail" and str(params.get("target", "")).rsplit("@", 1)[-1].lower() in self.internal_domains: return "write_internal"       # mail to a colleague is not leaving
+        if action == "send_mail" and domain_of(str(params.get("target", ""))) in self.internal_domains: return "write_internal"       # mail to a colleague is not leaving
         return ac
 
     def evaluate(self, agent, session, tool, action, params, cls, known):

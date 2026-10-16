@@ -5,6 +5,7 @@ if Halvard is unreachable, and it means there is always a window between deliver
 the window is measured, never assumed. Message bodies live here, in the customer's mail system; Courier reads them in memory to
 analyse and stores only verdicts, hashes and header facts.
 """
+from ..addr import domain_of
 import hashlib, secrets
 from dataclasses import dataclass, field
 
@@ -35,7 +36,7 @@ class Message:
     campaign: str | None = None                          # set by the sender simulation only to group fixtures; Courier derives its own key
 
     @property
-    def sender_domain(self): return self.sender.rsplit("@", 1)[-1].lower()
+    def sender_domain(self): return domain_of(self.sender)
 
 
 @dataclass
@@ -90,7 +91,7 @@ class ReferenceMail:
         fid = "FWD-" + secrets.token_hex(4)
         cp = Message(fid, self.clock.now(), from_mbx, from_mbx, "FW: " + msg.subject, msg.body, [to], attachments=msg.attachments, links=msg.links, forwarded_from=msg.id)
         self.messages[fid] = cp
-        self._ev("auto_forward", from_mbx, msg.id, to=to, via_rule=via_rule, external=to.rsplit("@", 1)[-1].lower() != self.domain)
+        self._ev("auto_forward", from_mbx, msg.id, to=to, via_rule=via_rule, external=domain_of(to) != self.domain)
         if to in self.mailboxes: self.mailboxes[to].folders["inbox"].append(fid)
 
     def send_outbound(self, from_addr, msg: Message):
@@ -104,7 +105,7 @@ class ReferenceMail:
 
     def _release_out(self, from_addr, msg, d):
         for r in msg.to:
-            self._ev("sent", from_addr, msg.id, to=r, external=r.rsplit("@", 1)[-1].lower() != self.domain, warned=d.get("action") == "warn")
+            self._ev("sent", from_addr, msg.id, to=r, external=domain_of(r) != self.domain, warned=d.get("action") == "warn")
             if r in self.mailboxes: self.mailboxes[r].folders["inbox"].append(msg.id)
         return {"status": "sent", **d}
 
@@ -142,7 +143,7 @@ class ReferenceMail:
 
     def set_forwarding(self, addr, to, actor, ip=None):
         self.mailboxes[addr].forwarding = to
-        self._ev("forwarding_set", addr, None, to=to, actor=actor, ip=ip, external=to.rsplit("@", 1)[-1].lower() != self.domain)
+        self._ev("forwarding_set", addr, None, to=to, actor=actor, ip=ip, external=domain_of(to) != self.domain)
 
     def add_delegate(self, addr, delegate, actor): self.mailboxes[addr].delegates.append(delegate); self._ev("delegate_add", addr, None, delegate=delegate, actor=actor)
 

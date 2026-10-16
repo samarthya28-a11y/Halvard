@@ -7,7 +7,7 @@ That is what keeps a spreadsheet of order numbers from being called regulated da
 import io, re, zipfile
 from dataclasses import dataclass, field
 
-CARD = re.compile(r"(?<![\d-])(?:\d+[ -]?){1,60}(?![\d-])")
+CARD = re.compile(r"(?<![\d-])(?:\d+[ \-.\u00a0\u2009\u202f\r\n]?){1,60}(?![\d-])")
 IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{2,4}){3,8}\b")
 SSN = re.compile(r"(?<![\d-])(\d{3})-(\d{2})-(\d{4})(?![\d-])")
 AADHAAR = re.compile(r"(?<![\d-])([2-9]\d{3})[ -]?(\d{4})[ -]?(\d{4})(?![\d-])")
@@ -37,9 +37,10 @@ def luhn_ok(num: str) -> bool:
 def cards_in(run: str) -> int:
     """Count valid card numbers inside a run of digit groups. Windows are taken only at the spaces and dashes that were already there,
     so a long unbroken number such as an order id is never sliced into lucky pieces."""
-    groups = [g for g in re.split(r"[ -]", run) if g]; found, i = 0, 0
+    groups = [g for g in re.split(r"[ \-.\u00a0\u2009\u202f\r\n]+", run) if g]; found, i = 0, 0
     while i < len(groups):
         for j in range(min(len(groups), i + 5), i, -1):
+            if j - i > 1 and any(len(g) > 6 for g in groups[i:j]): continue      # a card written in groups has short groups (4-4-4-4, 4-6-5); two long numbers side by side are not one card
             if card_plausible("".join(groups[i:j])): found += 1; i = j; break
         else: i += 1
     return found
@@ -118,7 +119,7 @@ class Classifier:
 
     def classify(self, name: str, data: bytes) -> Classification:
         text, why = extract_text(name, data[: self.max_bytes]); out = Classification(scanned_bytes=min(len(data), self.max_bytes))
-        if why: out.unscannable = why; return out
+        if why: out.unscannable = why; out.sensitivity = "confidential"; return out      # a file Halvard could not read is NOT known to be harmless: it is treated as confidential and says so
         L = out.labels
         cards = 0
         for m in CARD.finditer(text): cards += cards_in(m.group(0))

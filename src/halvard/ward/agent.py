@@ -227,7 +227,8 @@ class WardAgent:
         d = self.check_egress(0, channel, path, data, dest)
         if d.action == "block" and not d.justifiable: raise PermissionError(d.message)
         if d.action != "justify": return d
-        exp = self.clock.now() + minutes * 60; self.justified[(hashlib.sha256(data).hexdigest(), channel, dest_class)] = exp
+        minutes = max(1, min(int(minutes), 60)); exp = self.clock.now() + minutes * 60;      # a reason unlocks at most one hour, whatever the caller asks for
+        self.justified[(hashlib.sha256(data).hexdigest(), channel, dest_class)] = exp
         self.spool.append("ward.egress_justified", "user", "end_user", self.device_id, {"channel": channel, "minutes": minutes, "justification": text}, controls=(self.CONTROL.get(channel, "VAULTLINE.EGRESS"),))
         return d
 

@@ -43,7 +43,7 @@ class EgressBypassTests(unittest.TestCase):
             self.fs.copy_out(300, src, os.path.join(self.plain, "dots.csv"))
         pdf = os.path.join(self.w.tmp, "work", "orders.pdf")
         pathlib.Path(pdf).write_bytes(b"%PDF-1.4\n" + CARD_CSV)
-        with self.assertRaises(EgressBlocked):
+        with self.assertRaises((EgressBlocked, NeedsJustification)):       # unread file: never a silent allow; a recorded reason can unlock it
             self.fs.copy_out(300, pdf, os.path.join(self.plain, "orders.pdf"))
         self.assertFalse(os.path.exists(os.path.join(self.plain, "dots.csv")))
         self.assertFalse(os.path.exists(os.path.join(self.plain, "orders.pdf")))

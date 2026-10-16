@@ -2,6 +2,7 @@
 
 Everything that reads content goes through an Inspector, so the same gate applies here as on a device: off by default, scoped, purposed, noticed.
 """
+from ..addr import domain_of
 import json
 
 from ..ledger.audit import opaque
@@ -71,12 +72,12 @@ class VaultlineService:
         return {"device": device_id, "files": len(entries), "labels": counts, "sensitivity": sens}
 
     # ---------------- outbound mail ----------------
-    def _external(self, msg): return [r for r in msg.to if r.rsplit("@", 1)[-1].lower() not in self.own]
+    def _external(self, msg): return [r for r in msg.to if domain_of(r) not in self.own]
 
     def outbound_decision(self, msg):
         ext = self._external(msg)
         if not ext: return {"action": "allow", "inspected": False}
-        dest = "partner" if all(r.rsplit("@", 1)[-1].lower() in self.partners for r in ext) else "external"
+        dest = "partner" if all(domain_of(r) in self.partners for r in ext) else "external"
         merged, sens = {}, "internal"
         try:
             parts = [("body.txt", msg.body.encode())] + [(a.name, a.data) for a in msg.attachments]

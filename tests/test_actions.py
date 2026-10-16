@@ -25,7 +25,8 @@ class ActionTests(unittest.TestCase):
     def test_executed_action_record_has_actor_reason_scope_approval_reversal(self):
         self.req("isolate_host", ANALYST, reason="phishing click")
         rec = next(e for e in self.a.spool.entries() if e["kind"] == "relay.action_executed")
-        for k in ("reason", "scope", "approval_rule", "approvers", "reversal", "cannot_undo"): self.assertIn(k, rec["public"])
+        for k in ("scope", "approval_rule", "approvers", "reversal", "cannot_undo"): self.assertIn(k, rec["public"])
+        self.assertIn("reason", rec["private"])        # the reason is free text and may name a person, so it lives in the private half; an auditor sees that it exists and how to ask for it
         self.assertEqual(rec["public"]["reversal"], "release_isolation"); self.assertEqual(rec["actor_role"], "analyst")
 
     def test_isolation_keeps_management_channel_only(self):

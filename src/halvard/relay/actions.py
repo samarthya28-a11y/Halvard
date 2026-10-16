@@ -11,6 +11,12 @@ from pathlib import Path
 from .authority import Authority, Requirement, ORDER
 from .matrix_def import BY_KEY
 from .journal import RollbackReport
+from ..ledger.audit import opaque
+
+
+def scope_item(t):
+    """What an action touched, as it may appear in the PUBLIC half of the Ledger: an entity id as is, a file path only as a stable token (the real path is in the private fields)."""
+    s = str(t); return "path:" + opaque(s)[2:] if ("/" in s or "\\" in s) else s
 
 CLEANUP = {"remove_persistence", "config_rollback", "journal_rollback", "quarantine_file", "reset_credentials"}
 JIT_ROLES = {"keeper_crew", "service_provider", "halvard_support"}
@@ -203,7 +209,7 @@ class ActionEngine:
         undo = {"undo_with": BY_KEY[req.action]["reversal"], "data": outcome.get("undo"),
                 "cannot_undo": plan.get("cannot_undo", [])}
         self.executed[aid] = {"req": req, "undo": undo, "undone": False}
-        data = {"pending": pending_id, "scope": [str(t) for t in req.targets], "reason": req.reason,
+        data = {"pending": pending_id, "scope": [scope_item(t) for t in req.targets], "targets": [str(t) for t in req.targets], "reason": req.reason,
                 "approval_rule": reqmt.level, "approvers": [x.role for x in approvals],
                 "approver_ids": [x.id for x in approvals], "reversible": BY_KEY[req.action]["reversible"],
                 "reversal": undo["undo_with"], "cannot_undo": undo["cannot_undo"],
