@@ -1,7 +1,7 @@
 # Cross-check and manual-testing guide
 
 For: an independent reviewer (Cursor or a person) and for you, testing step by step.
-Status: covers Phases 1 to 5. Updated at the end of each phase; the last section says which phases are included.
+Status: covers Phases 1 to 8. Updated at the end of each phase; the last section says which phases are included.
 
 The author of this code is also the author of its tests and its evidence files. **Do not accept the evidence files on trust.**
 Everything below is written so a second reader can re-run it and disagree.
@@ -11,14 +11,12 @@ Everything below is written so a second reader can re-run it and disagree.
 * Python 3.11+ (developed on 3.13), standard library only. No install step.
 * From the repository root: `python3 -W ignore -m unittest discover -s tests` (about 25 s). The Linux lane needs root and fanotify; elsewhere those tests skip and the summary says so.
 * Mutation sweep (removes a behavior on a throwaway copy and requires a named test to fail): `python3 tools/mutation_check.py [name-filter]`.
-* Regenerate evidence: `python3 tools/run_acceptance.py`, `tools/run_acceptance_p2.py`, `tools/run_acceptance_p3.py`.
+* Regenerate evidence: `python3 tools/run_acceptance.py`, then `tools/run_acceptance_p2.py` through `tools/run_acceptance_p8.py`.
+* On Windows use `py` for `python3` and `$env:PYTHONPATH="src"; py -m halvard.cli <story>` for stories. Two tests skip off Linux.
 
 ## 1. Prompt to give Cursor
 
-> You are an adversarial reviewer of `halvard`, a security product reference implementation. Read `README.md`, `docs/12-crosscheck-guide.md`, and the evidence files.
-> Do not trust the evidence. For each phase: (1) run the tests; (2) pick five claims from the evidence file and try to falsify them by writing a NEW test that the author did not write;
-> (3) read `src/halvard/relay/actions.py`, `relay/journal.py`, `ledger/audit.py`, `tenancy.py`, `platforms/linux.py`, `signet/detectors.py`, `relay/commands.py` looking for logic errors, races, authorization bypasses, and places the code claims more than it does;
-> (4) list every claim in the docs that has no test; (5) report findings ranked by severity with a failing test or a concrete input for each. Do not fix anything until you have reported.
+The single prompt is kept in `docs/23-cursor-prompt.md` (copy it from there). It tells the reviewer to report first, then fix, with a failing test before every fix.
 
 ## 2. What each phase claims, and how to check it
 
