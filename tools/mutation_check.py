@@ -265,7 +265,7 @@ MUTATIONS = [
     ('Lumen: suspension not recorded on the case', 'controlplane.py', 'if res is not None and res.status == "executed": c.actions.append((self.clock.now(), "suspended the AI agent"', 'if res is not None and res.status == "never": c.actions.append((self.clock.now(), "suspended the AI agent"'),
     ('Hearth: tripwire laid over an existing file', 'ward/agent.py', 'elif os.path.lexists(k): why = "a file already exists there', 'elif False: why = "a file already exists there'),
     ('Hearth: tripwire laid in a system folder', 'ward/agent.py', 'FORBIDDEN_ROOTS = ("/etc",', 'FORBIDDEN_ROOTS = ("/zz-never",'),
-    ('Hearth: relative tripwire paths accepted', 'ward/agent.py', 'if not os.path.isabs(t["path"]): why =', 'if False: why ='),
+    ('Hearth: relative tripwire paths accepted', 'ward/agent.py', 'if not (os.path.isabs(t["path"]) or str(t["path"]).replace("\\\\", "/").startswith("/")): why =', 'if False: why ='),
     ('Hearth: changing a tripwire does not stop the process', 'ward/agent.py', 'if tw["kind"] == "encryption" and modifying and self.bundle.prevention.get("bulk_encryption", "enforce") == "enforce":', 'if False:'),
     ('Hearth: reading a tripwire stops the process', 'ward/agent.py', 'modifying = op in ("write", "rename", "delete", "create")', 'modifying = True'),
     ('Hearth: exempt programs are not exempt', 'ward/agent.py', 'if self._trusted(pid) or proc in self.bundle.tripwire_exempt:', 'if self._trusted(pid):'),
