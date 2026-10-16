@@ -52,14 +52,22 @@ class CaseEngine:
         self.cases, self._n = {}, 0
 
     # ---------- graph neighbourhood ----------
+    def shared_devices(self):
+        """Devices that two or more different people use (a jump box, a kiosk). They are where people meet, not a reason to treat those people as one story."""
+        kinds = {e["entity_id"]: e["kind"] for e in self.store.entities(self.ctx)}; users = {}
+        for s, r, d, _ in self.store.edges(self.ctx):
+            if r in REL and kinds.get(s) == "person" and kinds.get(d) == "device": users.setdefault(d, set()).add(s)
+        return {d for d, u in users.items() if len(u) >= 2}
+
     def related(self, entity_id, depth=3):
         adj = {}
         for s, r, d, _ in self.store.edges(self.ctx):
             if r in REL: adj.setdefault(s, set()).add(d); adj.setdefault(d, set()).add(s)
+        shared = self.shared_devices()
         seen, q = {entity_id}, deque([(entity_id, 0)])
         while q:
             n, k = q.popleft()
-            if k >= depth: continue
+            if k >= depth or n in shared: continue          # the walk never continues through a shared device
             for m in adj.get(n, ()):
                 if m not in seen: seen.add(m); q.append((m, k + 1))
         return seen
@@ -68,7 +76,9 @@ class CaseEngine:
     def add(self, f: CaseFinding) -> Case:
         hood = self.related(f.entity_id)
         camp = f.details.get("campaign")
-        hits = [c for c in self.cases.values() if c.status != "closed" and f.ts - c.updated_at <= self.window and (c.entities & hood or (camp and camp in c.campaigns))]
+        shared = self.shared_devices(); key = (hood - shared) | {f.entity_id}      # a shared device only joins findings that are directly about that device
+        def case_key(c): return (c.entities - shared) | {x.entity_id for x in c.findings}
+        hits = [c for c in self.cases.values() if c.status != "closed" and f.ts - c.updated_at <= self.window and (case_key(c) & key or (camp and camp in c.campaigns))]
         if not hits:
             self._n += 1; c = Case(f"C-{self._n}", opened_at=f.ts); self.cases[c.id] = c
         else:

@@ -47,7 +47,7 @@ tryit("support staff without a grant", lambda: s.list_entities(TenantContext("ac
 tryit("support grant from a region acme does not allow", lambda: w.p.open_support_grant(w.m("acme"), "halvard-eng-us", 30, "us-east"))
 tryit("export acme's data to the US", lambda: w.p.export("acme", "us-east"))
 tryit("provider reaches the private bank (after the bank's own grant)", lambda: (w.p.open_access(w.m("bank", "owner"), "msp-1", "service_provider", "eu-central", {"summary"}, 60), w.p.summary("bank", "msp-1", "service_provider", "eu-central")))
-tryit("private bank calls out to a Halvard service", lambda: w.p.external_call("bank", "intel.halvard.example", "reputation lookup", lambda: 1))
+tryit("private bank calls out to a Halvard service", lambda: w.p.external_call(w.m("bank"), "intel.halvard.example", "reputation lookup", lambda: 1))
 code("\n".join(L)); P_(f"Every refusal above is a record in the Ledger of the company it was aimed at: acme {sum(1 for r in a.ledger.entries() if r['kind'] in ('fabric.access_refused','fabric.support_refused','tenant.access_denied'))} record(s).")
 
 H("E4. A signed offline bundle")
@@ -55,11 +55,11 @@ w = World8(); a_, h, fs = w.add_laptop("bank", "LT-9", "bob"); h.software["label
 import hashlib
 BAD = b"MZ the bank's own threat-intel file"
 d = os.path.join(w.tmp, "bundle"); build_bundle(d, 5, VENDOR_KEY, w.clock.now(), advisories={"synced_with_upstream": None, "advisories": [{"id": "HLV-SAMPLE-0900", "product": "labelprinter", "affected_below": "3.0", "base_severity": 8.0, "exploit": "exploited_in_wild", "surface": "network", "port": None, "summary": "Remote takeover of the label printer service", "workaround": None}]}, iocs=[hashlib.sha256(BAD).hexdigest()])
-before = [x.id for x in cp.glass.evaluate() if x.id.startswith("HLV")]; w.p.import_bundle("bank", d, VENDOR_KEY); cp.fleet.reconnect("LT-9"); a_.set_online(False)
+before = [x.id for x in cp.glass.evaluate() if x.id.startswith("HLV")]; w.p.import_bundle(w.m("bank"), d, VENDOR_KEY); cp.fleet.reconnect("LT-9"); a_.set_online(False)
 try: a_.pre_execute("/apps/x.exe", BAD); blocked = False
 except Exception: blocked = True
 code(f"advisories before: {before}\nadvisories after : {[x.id for x in cp.glass.evaluate() if x.id.startswith('HLV')]}\nknown-bad file blocked on the offline device: {blocked}")
-for label, fn in (("same bundle again", lambda: w.p.import_bundle("bank", d, VENDOR_KEY)), ("wrong signing key", lambda: w.p.import_bundle("bank", d, b"x" * 32))):
+for label, fn in (("same bundle again", lambda: w.p.import_bundle(w.m("bank"), d, VENDOR_KEY)), ("wrong signing key", lambda: w.p.import_bundle(w.m("bank"), d, b"x" * 32))):
     try: fn()
     except Exception as e: P_(f"- {label}: refused ({e})")
 

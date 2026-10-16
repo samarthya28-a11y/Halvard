@@ -67,12 +67,10 @@ class TenancyTests(unittest.TestCase):
     def test_a_tenant_id_that_climbs_out_of_its_prefix_cannot_write_another_tenants_object(self):
         root = tempfile.mkdtemp(); p = Platform(root, ManualClock())
         p.create_tenant("globex", "Globex")
-        p.create_tenant("../t/globex", "Evil")
         g = p.tenants["globex"].cp.ctx
-        e = p.tenants["../t/globex"].cp.ctx
         p.store.put_object(g, "quarterly", b"SECRET-NUMBERS")
-        with self.assertRaises(TenantIsolationError):
-            p.store.put_object(e, "quarterly", b"OVERWRITTEN")
+        for evil in ("../t/globex", "..", "a/b", "x\\y", ".hidden", ""):
+            with self.assertRaises(ValueError): p.create_tenant(evil, "Evil")         # a company id is a folder name: it may not climb or nest
         self.assertEqual(p.store.get_object(g, "quarterly"), b"SECRET-NUMBERS")
 
     def test_a_normal_tenant_cannot_read_another_tenants_row_or_escape_with_a_key(self):

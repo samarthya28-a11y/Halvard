@@ -8,6 +8,7 @@ than the command carries. Reference limitation: HMAC with a per-device key; prod
 import hmac, json, secrets
 
 from .authority import ORDER
+from .matrix_def import BY_KEY
 
 REMOTE_ACTIONS = {"isolate_host", "release_isolation", "stop_process", "quarantine_file", "legal_hold", "install_update", "rollback_update"}
 
@@ -30,6 +31,7 @@ def verify(cmd, key: bytes, device, now, seen_nonces: set, authority, asset_clas
     if cmd["action"] not in REMOTE_ACTIONS: return False, f"{cmd['action']} cannot be sent remotely"
     need = authority.requirement(cmd["action"], asset_class)
     if ORDER[cmd["rule"]] < ORDER[need.level]: return False, f"this device requires '{need.level}' for {cmd['action']}; the command carries '{cmd['rule']}'"
-    people = {a["id"] for a in cmd["approvals"]}
-    if len(people) < need.approvals_needed: return False, f"needs {need.approvals_needed} different approvers, command carries {len(people)}"
+    allowed = set(BY_KEY[cmd["action"]]["approve_roles"]) - {"keeper_crew"}
+    people = {a["id"] for a in cmd["approvals"] if a.get("role") in allowed}       # only approvers whose ROLE may approve this action count, checked against the device's own matrix
+    if len(people) < need.approvals_needed: return False, f"needs {need.approvals_needed} different approvers from {', '.join(sorted(allowed))}; the command carries {len(people)} who qualify"
     return True, "ok"

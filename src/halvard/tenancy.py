@@ -5,7 +5,7 @@ Isolation is enforced three ways: (1) SQL always binds tenant_id from the contex
 t/<tenant>/ and refuses anything that escapes. Support staff see a tenant only through a time-boxed grant.
 Failures are closed (raise) and recorded.
 """
-import json, sqlite3
+import json, re, sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -62,6 +62,7 @@ class TenantStore:
         raise TenantIsolationError(why)
 
     def create_tenant(self, tenant_id, name, region="eu-west", deployment="cloud", operated_by="customer"):
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", str(tenant_id)): raise ValueError("a company id is letters, digits, '-' or '_' (it is also a storage folder name, so it may not contain '.' or '/')")
         self.db.execute("INSERT INTO tenant(tenant_id,name,region,deployment,operated_by) VALUES(?,?,?,?,?)",
                         (tenant_id, name, region, deployment, operated_by))
         self.registered.add(tenant_id); self.db.commit()

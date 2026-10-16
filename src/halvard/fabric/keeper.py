@@ -10,7 +10,7 @@ What bounds the crew, in the order it is checked:
 Crew see case summaries with people's names replaced by stable pseudonyms unless the charter says otherwise. Raw telemetry and hunting are not part of the desk at all.
 Nothing a crew member does in one company is visible from another. The customer's report is read from its own Ledger.
 """
-import time
+import re, time
 from dataclasses import dataclass, field
 
 from ..ledger.audit import opaque
@@ -77,6 +77,7 @@ class KeeperDesk:
         # the platform checks grant, region, deployment, key state and records the access
         g = self.p.delegations.find(tenant, "keeper", "keeper_crew", scope)
         if g is None: self.p._refuse(tenant, crew, "Keeper has no open access to this company")
+        if g.region not in ("*", c.home_region): self.p._refuse(tenant, crew, "Keeper's access was granted for a different region than this crew member works from")
         rec = self.p.tenants[tenant]
         ok, why = rec.residency.check("staff_access", c.home_region)
         if not ok: self.p._refuse(tenant, crew, why)
@@ -96,7 +97,7 @@ class KeeperDesk:
     def _redact(self, text, rec, ch):
         if ch.see_people: return text
         for r in rec.cp.hr.records.values():
-            for n in sorted(filter(None, (r.name, r.email, r.upn, r.sam, r.person)), key=len, reverse=True): text = text.replace(n, f"[person {opaque(r.person)[2:6]}]")
+            for n in sorted(filter(None, (r.name, r.email, r.upn, r.sam, r.person)), key=len, reverse=True): text = re.sub(re.escape(n), f"[person {opaque(r.person)[2:6]}]", text, flags=re.IGNORECASE)
         return text
 
     def queue(self, crew):

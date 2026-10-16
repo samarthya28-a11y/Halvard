@@ -101,6 +101,8 @@ class Platform:
         self.members.add((member.tenant, member.id, member.role)); return member
 
     def _auth(self, member: Member):
+        if not isinstance(member, Member):
+            self.ledger.append("fabric.access_refused", "unknown", "outsider", "platform", {"why": "no company member was named"}, controls=("FABRIC.DELEGATION",)); raise AccessRefused("a company member must be named")
         if (member.tenant, member.id, member.role) not in self.members: self._refuse(member.tenant, member.id, "not a recognised member of this company")
 
     def customer(self, member: Member):
@@ -164,13 +166,18 @@ class Platform:
         return out
 
     # ---------------- deployment ----------------
-    def external_call(self, tenant, dest, purpose, fn):
-        self.tenants[tenant].egress.check(dest, purpose); return fn()
+    def external_call(self, member: Member, dest, purpose, fn):
+        """An outbound call made on a company's behalf. Only that company's own enrolled people can cause one."""
+        self._auth(member); self.tenants[member.tenant].egress.check(dest, purpose); return fn()
 
     def dependency_report(self, tenant): return dependencies(self.tenants[tenant].deployment)
 
-    def import_bundle(self, tenant, path, vendor_key):
-        """Apply a signed offline bundle (advisories, AI tool catalog, known-bad file hashes). Verified first; applied whole or not at all."""
+    def import_bundle(self, member: Member, path, vendor_key):
+        """Apply a signed offline bundle (advisories, AI tool catalog, known-bad file hashes) to the member's own company. Who is asking is checked first,
+        then the signature, every part's hash and the version; it applies whole or not at all."""
+        self._auth(member)
+        if member.role not in ("owner", "it_admin"): self._refuse(member.tenant, member.id, "only the company's owner or IT admin can apply an update bundle")
+        tenant = member.tenant
         from ..glass.feed import feed_from_dict
         from ..lumen.inventory import AITool
         rec = self.tenants[tenant]
@@ -197,7 +204,9 @@ class Platform:
 
     def export(self, tenant, destination_region):
         """The customer's data export (F128 in spirit): refused if the destination region is outside the tenant's residency."""
-        rec = self.tenants[tenant]; ok, why = rec.residency.check("export", destination_region)
+        rec = self.tenants[tenant]; self.refresh_key(tenant)
+        if self.locked(tenant): self._refuse(tenant, "halvard:fabric", "the company's key service has locked its data; nothing can be exported", "fabric.export_refused")
+        ok, why = rec.residency.check("export", destination_region)
         rec.cp.ledger.append("fabric.export_" + ("allowed" if ok else "refused"), "halvard:fabric", "system", tenant, {"to_region": destination_region}, controls=("FABRIC.RESIDENCY",))
         if not ok: raise AccessRefused(why)
         return True

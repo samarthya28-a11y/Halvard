@@ -275,7 +275,7 @@ def platform():
     except R.KeyUnavailable as e: print("  after the bank revokes its key:", e)
     kms.restore(); w2.p.refresh_key("bank"); print("  after it restores the key:", w2.p.store.get_object(b.cp.ctx, "r.txt"))
     print("\nPrivate deployment: no remote crew, no remote staff, no outbound calls:")
-    for label, fn in (("support grant", lambda: P.open_support_grant(w.m("bank"), "halvard-eng", 30, "eu-central")), ("outbound call", lambda: P.external_call("bank", "intel.halvard.example", "reputation lookup", lambda: 1))):
+    for label, fn in (("support grant", lambda: P.open_support_grant(w.m("bank"), "halvard-eng", 30, "eu-central")), ("outbound call", lambda: P.external_call(w.m("bank"), "intel.halvard.example", "reputation lookup", lambda: 1))):
         try: fn()
         except (R.AccessRefused, R.EgressDenied) as e: print(f"  {label}: {e}")
     print("  ledgers intact:", {t: r.cp.ledger.verify()[0] for t, r in P.tenants.items()})

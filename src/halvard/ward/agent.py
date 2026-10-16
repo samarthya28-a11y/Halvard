@@ -27,6 +27,9 @@ from .verdict import VerdictEngine
 SYSTEM = Principal("halvard:auto", "system")
 
 
+URGENT_REMOTE = {"isolate_host", "stop_process", "quarantine_file", "legal_hold"}      # containment is never delayed by a maintenance window; updates and rollbacks are
+
+
 class Blocked(PermissionError):
     pass
 
@@ -246,7 +249,7 @@ class WardAgent:
             return {"status": "rejected", "message": why}
         self._nonces.add(cmd["nonce"])
         targets = cmd["params"].get("paths") if cmd["action"] == "quarantine_file" else None
-        req = ActionRequest(cmd["action"], Principal("controlplane", "system"), targets or [self.device_id], cmd["reason"], cmd.get("case"), cmd["params"], critical=True)
+        req = ActionRequest(cmd["action"], Principal("controlplane", "system"), targets or [self.device_id], cmd["reason"], cmd.get("case"), cmd["params"], critical=cmd["action"] in URGENT_REMOTE)
         r = self.engine.request_authorized(req, cmd)
         return {"status": r.status, "message": r.message, "detail": r.detail}
 
