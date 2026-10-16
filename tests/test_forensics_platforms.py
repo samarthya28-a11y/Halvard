@@ -27,8 +27,8 @@ class ForensicTests(unittest.TestCase):
         r = self.ask(profile="triage"); self.assertEqual(r.status, "pending_approval"); self.assertFalse(r.preview["personal_data"])
         res = self.e.approve(r.action_id, ADM); d = pathlib.Path(res.detail["dir"])
         self.assertEqual(sorted(p.name for p in d.iterdir()), ["manifest.json", "triage.json"])
-        t = json.loads((d / "triage.json").read_text()); self.assertEqual(t["connections"][0]["dst_ip"], "203.0.113.9"); self.assertIn("run:evil", t["persistence"])
-        self.assertNotIn("customer data", (d / "triage.json").read_text())
+        t = json.loads((d / "triage.json").read_text(encoding="utf-8")); self.assertEqual(t["connections"][0]["dst_ip"], "203.0.113.9"); self.assertIn("run:evil", t["persistence"])
+        self.assertNotIn("customer data", (d / "triage.json").read_text(encoding="utf-8"))
 
     def test_files_profile_copies_only_named_paths_and_flags_personal_data(self):
         r = self.ask(profile="files", paths=[self.f, "/no/such/file"]); self.assertTrue(r.preview["personal_data"]); self.assertIn("personal", r.preview["summary"])
@@ -48,7 +48,7 @@ class ForensicTests(unittest.TestCase):
         self.assertEqual(forensics.verify_collection(d, seal), (True, []))
         (d / "files" / "0000").write_bytes(b"planted"); ok, p = forensics.verify_collection(d, seal); self.assertFalse(ok); self.assertIn("files/0000 changed", p[0])
         (d / "files" / "0000").write_bytes(b"customer data")
-        doc = json.loads((d / "manifest.json").read_text()); doc["manifest"]["reason"] = "edited"; (d / "manifest.json").write_text(json.dumps(doc))
+        doc = json.loads((d / "manifest.json").read_text(encoding="utf-8")); doc["manifest"]["reason"] = "edited"; (d / "manifest.json").write_text(json.dumps(doc), encoding="utf-8")
         self.assertIn("manifest seal invalid", forensics.verify_collection(d, seal)[1])
 
     def test_ledger_records_counts_and_hashes_never_contents_or_paths_in_public(self):
@@ -93,7 +93,7 @@ class PlatformTests(unittest.TestCase):
     def test_case_insensitive_volumes_share_one_journal_rate_limit_key(self):
         tmp = tempfile.mkdtemp(); clock = ManualClock(); host = SimHost("H", tmp + "/h")
         a = WardAgent("H", tmp + "/a", PolicyBundle(tenant="t", version=1, platform="macos").sign(POLICY_KEY), host, clock, DEV_KEY, UNINSTALL_KEY)
-        p = os.path.join(tmp, "Doc.TXT"); pathlib.Path(p).write_text("v1")
+        p = os.path.join(tmp, "Doc.TXT"); pathlib.Path(p).write_text("v1", encoding="utf-8")
         a.journal.before(1, "write", p); self.assertTrue(a.journal.recently_captured(1, p.lower()))
 
     def test_every_platform_renders_default_deny_with_only_the_management_path(self):

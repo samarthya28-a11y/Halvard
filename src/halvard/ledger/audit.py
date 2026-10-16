@@ -146,7 +146,7 @@ class AuditLog:
                 problems.append(f"seq {rec['seq']}: seal invalid")
             prev = rec["hash"]
         try:
-            a = json.loads(self.anchor.read_text())
+            a = json.loads(self.anchor.read_text(encoding="utf-8"))
             seal = a.pop("seal")
             if not hmac.compare_digest(hmac.new(self._key, _canon(a), "sha256").hexdigest(), seal):
                 problems.append("head anchor seal invalid")

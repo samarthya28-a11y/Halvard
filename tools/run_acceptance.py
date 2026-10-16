@@ -104,5 +104,5 @@ for x in ("A2 stolen session cannot act after Signet revocation + Ward isolation
           "Ransomware that encrypts slowly (below 8 files / 30 s), or only files in journal-excluded paths, is not stopped by this detector alone. See the threat model.")  :
     P("- " + x)
 
-(ROOT / "docs" / "07-phase1-evidence.md").write_text("\n".join(out) + "\n")
+(ROOT / "docs" / "07-phase1-evidence.md").write_text("\n".join(out) + "\n", encoding="utf-8")
 print("wrote docs/07-phase1-evidence.md; suite:", "OK" if t.returncode == 0 else "FAILED")

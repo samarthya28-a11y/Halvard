@@ -376,10 +376,10 @@ def _one(i, mut, env):
     try:
         for d in COPY_DIRS:
             shutil.copytree(ROOT / d, work / d, ignore=shutil.ignore_patterns("__pycache__"))
-        f = work / "src" / "halvard" / rel; orig = f.read_text()
+        f = work / "src" / "halvard" / rel; orig = f.read_text(encoding="utf-8")
         if old not in orig:
             return name, "SKIP", f"pattern not found in {rel}"
-        f.write_text(orig.replace(old, new, 1))
+        f.write_text(orig.replace(old, new, 1), encoding="utf-8")
         rc, failing, err = _suite(work, env)
         return name, ("KILLED" if rc != 0 and failing else "SURVIVED"), failing
     finally:

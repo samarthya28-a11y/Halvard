@@ -15,7 +15,7 @@ from pathlib import Path
 
 from ..hunt import ql
 
-ATTACK = json.loads((Path(__file__).resolve().parents[3] / "policy" / "attack_techniques.json").read_text())
+ATTACK = json.loads((Path(__file__).resolve().parents[3] / "policy" / "attack_techniques.json").read_text(encoding="utf-8"))
 SEVERITIES = ("low", "medium", "high", "critical")
 MAX_EXPIRY_DAYS = 180
 AUTHOR_ROLES = {"analyst", "it_admin"}

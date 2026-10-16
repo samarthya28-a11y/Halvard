@@ -49,7 +49,7 @@ class RansomwareTests(unittest.TestCase):
 
     def test_tampered_spool_is_rejected_at_ingest(self):
         a, host, clock, fs = make_agent(self.tmp); host.spawn(7, "burst.exe"); sim.run_simulation(fs, 7, self.root)
-        lines = pathlib.Path(a.spool.path).read_text().splitlines(); pathlib.Path(a.spool.path).write_text("\n".join(lines[1:]) + "\n")
+        lines = pathlib.Path(a.spool.path).read_text(encoding="utf-8").splitlines(); pathlib.Path(a.spool.path).write_text("\n".join(lines[1:]) + "\n", encoding="utf-8")
         tenant = AuditLog(os.path.join(self.tmp, "tenant.log"), "acme", b"t" * 32, clock)
         self.assertEqual(a.sync(tenant)["kind"], "ledger.spool_rejected")
 
@@ -131,9 +131,9 @@ class RansomwareTests(unittest.TestCase):
     # ---- safety rails on the simulator itself ----
     def test_simulation_refuses_unauthorized_directory(self):
         a, host, clock, fs = make_agent(self.tmp); other = os.path.join(self.tmp, "real-docs"); os.makedirs(other)
-        pathlib.Path(other, "keep.txt").write_text("precious")
+        pathlib.Path(other, "keep.txt").write_text("precious", encoding="utf-8")
         with self.assertRaises(sim.SimulationNotAuthorized): sim.run_simulation(fs, 1, other)
-        self.assertEqual(pathlib.Path(other, "keep.txt").read_text(), "precious")
+        self.assertEqual(pathlib.Path(other, "keep.txt").read_text(encoding="utf-8"), "precious")
 
 
 if __name__ == "__main__":

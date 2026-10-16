@@ -11,7 +11,7 @@ from pathlib import Path
 from ..relay.actions import Principal
 from ..ward import simulate as sim
 from ..ward.agent import Blocked
-from ..ward.verdict import EICAR
+from ..ward.verdict import TEST_MARKER as EICAR      # a harmless marker, not the EICAR file: real antivirus deletes that one on write
 
 
 @dataclass

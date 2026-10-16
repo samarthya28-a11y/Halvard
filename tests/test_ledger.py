@@ -22,17 +22,17 @@ class LedgerTests(unittest.TestCase):
 
     def test_edit_is_detected(self):
         log = mk(self.tmp)
-        lines = pathlib.Path(log.path).read_text().splitlines(); r = json.loads(lines[1]); r["public"]["confidence"] = 0.1
-        lines[1] = json.dumps(r, sort_keys=True, separators=(",", ":")); pathlib.Path(log.path).write_text("\n".join(lines) + "\n")
+        lines = pathlib.Path(log.path).read_text(encoding="utf-8").splitlines(); r = json.loads(lines[1]); r["public"]["confidence"] = 0.1
+        lines[1] = json.dumps(r, sort_keys=True, separators=(",", ":")); pathlib.Path(log.path).write_text("\n".join(lines) + "\n", encoding="utf-8")
         ok, p = log.verify(); self.assertFalse(ok); self.assertTrue(any("changed" in x for x in p))
 
     def test_deleted_entry_is_detected(self):
-        log = mk(self.tmp); lines = pathlib.Path(log.path).read_text().splitlines(); del lines[1]
-        pathlib.Path(log.path).write_text("\n".join(lines) + "\n"); self.assertFalse(log.verify()[0])
+        log = mk(self.tmp); lines = pathlib.Path(log.path).read_text(encoding="utf-8").splitlines(); del lines[1]
+        pathlib.Path(log.path).write_text("\n".join(lines) + "\n", encoding="utf-8"); self.assertFalse(log.verify()[0])
 
     def test_tail_truncation_is_detected(self):
-        log = mk(self.tmp); lines = pathlib.Path(log.path).read_text().splitlines()
-        pathlib.Path(log.path).write_text("\n".join(lines[:-1]) + "\n")
+        log = mk(self.tmp); lines = pathlib.Path(log.path).read_text(encoding="utf-8").splitlines()
+        pathlib.Path(log.path).write_text("\n".join(lines[:-1]) + "\n", encoding="utf-8")
         ok, p = log.verify(); self.assertFalse(ok); self.assertTrue(any("truncated" in x for x in p))
 
     def test_raw_content_refused(self):

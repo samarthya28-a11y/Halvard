@@ -100,7 +100,7 @@ class WardAgent:
         return True
 
     # ---- tripwires (Hearth): files nobody has a reason to touch ----
-    FORBIDDEN_ROOTS = ("/etc", "/usr", "/bin", "/sbin", "/boot", "/sys", "/proc", "/dev", "/lib", "c:/windows", "c:/program files")
+    FORBIDDEN_ROOTS = ("/etc", "/usr", "/bin", "/sbin", "/boot", "/sys", "/proc", "/dev", "/lib", "/windows", "/program files", "/programdata")
 
     @staticmethod
     def _twkey(path): return os.path.normpath(str(path)).replace("\\", "/")
@@ -125,8 +125,9 @@ class WardAgent:
         for k, t in want.items():
             if k in self.tripwires: continue
             why = None
-            if not os.path.isabs(t["path"]): why = "the path is not absolute"
-            elif any(k.lower().startswith(r) for r in self.FORBIDDEN_ROOTS): why = "operating-system folders are never used"
+            kk = k.lower().replace("\\", "/")
+            if not (os.path.isabs(t["path"]) or kk.startswith("/")): why = "the path is not absolute"
+            elif any(kk.startswith(r) or (len(kk) > 2 and kk[1:2] == ":" and kk[2:].startswith(r)) for r in self.FORBIDDEN_ROOTS): why = "operating-system folders are never used"
             elif os.path.lexists(k): why = "a file already exists there; Halvard never replaces an existing file"
             elif not Path(k).parent.is_dir(): why = "the folder does not exist"
             if why:

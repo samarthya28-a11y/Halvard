@@ -1,5 +1,7 @@
 """Command line for the reference build: `python -m halvard.cli <demo|setup|perf>`."""
 import json, os, sys, tempfile
+if sys.platform == "win32":      # the Windows profile does not journal AppData\Local (where the default temp folder is); demos need an ordinary documents-style folder
+    _w = os.path.join(os.path.expanduser("~"), "halvard-work"); os.makedirs(_w, exist_ok=True); tempfile.tempdir = _w
 
 
 def _agent(tmp, **kw):

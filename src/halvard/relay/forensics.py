@@ -68,12 +68,12 @@ def collect(host, params, dest: Path, meta: dict, seal) -> dict:
     manifest = {**meta, "profile": prof, "items": items, "skipped": truncated,
                 "personal_data": prof in ("files", "memory"), "retention_days": params.get("retention_days", 30)}
     body = json.dumps(manifest, sort_keys=True).encode()
-    (dest / "manifest.json").write_text(json.dumps({"manifest": manifest, "seal": seal(body)}, sort_keys=True, indent=1))
+    (dest / "manifest.json").write_text(json.dumps({"manifest": manifest, "seal": seal(body)}, sort_keys=True, indent=1), encoding="utf-8")
     return {"manifest": manifest, "digest": hashlib.sha256(body).hexdigest(), "dir": str(dest)}
 
 
 def verify_collection(dest: Path, seal):
-    doc = json.loads((Path(dest) / "manifest.json").read_text()); problems = []
+    doc = json.loads((Path(dest) / "manifest.json").read_text(encoding="utf-8")); problems = []
     if seal(json.dumps(doc["manifest"], sort_keys=True).encode()) != doc["seal"]: problems.append("manifest seal invalid")
     for it in doc["manifest"]["items"]:
         f = Path(dest) / it["file"]

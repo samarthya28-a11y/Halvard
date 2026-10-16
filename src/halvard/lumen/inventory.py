@@ -37,7 +37,7 @@ class Found:
 
 
 def load_catalog(path):
-    d = json.loads(Path(path).read_text())
+    d = json.loads(Path(path).read_text(encoding="utf-8"))
     return [AITool(**t) for t in d["tools"]]
 
 

@@ -28,6 +28,10 @@ def _tracked_mkdtemp(*a, **k):
 
 
 tempfile.mkdtemp = _tracked_mkdtemp
+if sys.platform == "win32":
+    # The Windows profile deliberately does not journal files under AppData\Local (caches, temp). The default temp folder lives there, so tests must use
+    # a folder that is an ordinary place for user documents, or they would be testing the exclusion instead of the product.
+    _root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".test-tmp"); os.makedirs(_root, exist_ok=True); tempfile.tempdir = os.path.abspath(_root)
 
 
 def _cleanup():

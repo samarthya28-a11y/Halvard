@@ -177,7 +177,7 @@ class Journal:
                 tgt = snap / hashlib.sha256(final.encode()).hexdigest()
                 if not tgt.exists():
                     shutil.copyfile(final, tgt)
-                    (snap / (tgt.name + ".path")).write_text(final)
+                    (snap / (tgt.name + ".path")).write_text(final, encoding="utf-8")
             if op == "create":
                 if os.path.isfile(path):
                     if not dry_run: os.remove(path)

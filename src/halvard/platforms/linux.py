@@ -20,7 +20,8 @@ from pathlib import Path
 
 from ..relay.host import SimHost
 
-libc = ctypes.CDLL(None, use_errno=True)
+import sys
+libc = ctypes.CDLL(None, use_errno=True) if sys.platform.startswith("linux") else None      # importable everywhere; usable only on Linux
 FAN_CLOEXEC, FAN_NONBLOCK, FAN_CLASS_NOTIF, FAN_CLASS_CONTENT = 0x1, 0x2, 0x0, 0x4
 FAN_REPORT_DFID_NAME = 0x400 | 0x800
 FAN_CLOSE_WRITE, FAN_CLOSE_NOWRITE, FAN_OPEN_PERM, FAN_OPEN_EXEC_PERM = 0x8, 0x10, 0x10000, 0x40000
@@ -46,11 +47,11 @@ class LinuxHost(SimHost):
 
     def proc(self, pid):
         try:
-            stat_txt = Path(f"/proc/{pid}/stat").read_text()
-            comm = Path(f"/proc/{pid}/comm").read_text().strip()
+            stat_txt = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
+            comm = Path(f"/proc/{pid}/comm").read_text(encoding="utf-8").strip()
             ppid = int(stat_txt.rsplit(")", 1)[1].split()[1])
             state = stat_txt.rsplit(")", 1)[1].split()[0]
-            uid = next(l.split()[1] for l in Path(f"/proc/{pid}/status").read_text().splitlines() if l.startswith("Uid:"))
+            uid = next(l.split()[1] for l in Path(f"/proc/{pid}/status").read_text(encoding="utf-8").splitlines() if l.startswith("Uid:"))
             try: cmd = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace").strip()
             except OSError: cmd = None
             exe = None
@@ -82,7 +83,7 @@ class LinuxHost(SimHost):
                 if i: procs.append({"pid": int(d.name), **{k: i[k] for k in ("name", "user", "state", "cmdline", "ppid")}})
         conns = []
         for f, proto in (("/proc/net/tcp", "tcp"), ("/proc/net/tcp6", "tcp6")):
-            try: lines = Path(f).read_text().splitlines()[1:]
+            try: lines = Path(f).read_text(encoding="utf-8").splitlines()[1:]
             except OSError: continue
             for l in lines:
                 c = l.split(); ip, port = c[2].split(":")

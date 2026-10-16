@@ -12,8 +12,8 @@ class AuthorityTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("gen", ROOT / "tools" / "gen_matrix.py")
         g = importlib.util.module_from_spec(spec); spec.loader.exec_module(g)
         js, md = g.render()
-        self.assertEqual(js, (ROOT / "policy" / "authority_matrix.json").read_text())
-        self.assertEqual(md, (ROOT / "docs" / "03-authority-matrix.md").read_text())
+        self.assertEqual(js, (ROOT / "policy" / "authority_matrix.json").read_text(encoding="utf-8"))
+        self.assertEqual(md, (ROOT / "docs" / "03-authority-matrix.md").read_text(encoding="utf-8"))
 
     def test_destructive_actions_never_auto_on_sensitive_classes(self):
         for a in MATRIX:

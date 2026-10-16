@@ -161,7 +161,7 @@ class ActionEngine:
             if os.path.isfile(p):
                 h = hashlib.sha256(Path(p).read_bytes()).hexdigest()
                 shutil.copyfile(p, d / h); manifest[str(p)] = h
-        (d / "manifest.json").write_text(json.dumps(manifest))
+        (d / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
         self.holds[case_id] = "frozen"
         self.ledger.append("relay.evidence_frozen", by.id, by.role, case_id, {"items": len(manifest), "paths": list(manifest)},
                            controls=("RELAY.LEGAL_HOLD",))
@@ -440,7 +440,7 @@ class _Undo(_H):
         elif r.action == "journal_rollback":
             snap = Path(d["snapshot"])
             for meta in snap.glob("*.path"):
-                dest = meta.read_text(); shutil.copyfile(snap / meta.name[:-5], dest)
+                dest = meta.read_text(encoding="utf-8"); shutil.copyfile(snap / meta.name[:-5], dest)
         elif r.action == "legal_hold": eng.holds.pop(d["case"], None)
         elif r.action == "collect_forensics":
             if r.case_id in eng.holds:

@@ -8,6 +8,9 @@ The EICAR string is the industry-standard harmless test file and is always treat
 import hashlib
 from .detect import entropy
 
+# A harmless marker that is NOT on any antivirus list. Real antivirus on a developer's machine removes the EICAR file the moment it is written, so anything that has to
+# put a test file on disk (the setup guide, the tests) uses this instead. EICAR is still recognised when it is only held in memory.
+TEST_MARKER = b"HALVARD-HARMLESS-KNOWN-BAD-TEST-FILE-DO-NOT-RUN-0001"
 EICAR = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
 
 
@@ -39,7 +42,7 @@ class VerdictEngine:
 
     def evaluate(self, data: bytes, name: str, online: bool) -> Verdict:
         d = hashlib.sha256(data).hexdigest()
-        if d in self.known_bad or EICAR in data:
+        if d in self.known_bad or EICAR in data or TEST_MARKER in data:
             return Verdict("block", 1.0, ["matches a known-bad file"], "local_cache")
         if online and self.reputation:
             r = self.reputation(d)

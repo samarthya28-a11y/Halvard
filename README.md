@@ -69,4 +69,16 @@ PYTHONPATH=src python3 -m halvard.cli platform            # any story from the l
 ```
 
 The same commands work in a cloud session on this repository. Keep both in step with `git pull` / `git push`.
-On a machine that is not Linux, or when not root, the Linux file-sensor tests are skipped, so fewer tests run; that is expected.
+On a machine that is not Linux, or when not root, the Linux file-sensor tests and the performance-budget test are skipped, so fewer tests run; that is expected.
+
+### Windows (PowerShell)
+
+```
+git clone https://github.com/samarthya28-a11y/Halvard
+cd Halvard
+py -W ignore -m unittest discover -s tests
+$env:PYTHONPATH="src"; py -m halvard.cli platform
+```
+
+Tests and demos create their working files under `.test-tmp` (tests) or `~\halvard-work` (demos), not under `AppData\Local\Temp`, because Halvard's Windows profile deliberately does not journal AppData caches and temp files.
+If your antivirus removes a file during a run, tell me which: the tests use a harmless marker instead of the EICAR file for exactly that reason.

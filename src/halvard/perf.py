@@ -2,7 +2,7 @@
 import json, os, random, shutil, statistics, tempfile, time, tracemalloc
 from pathlib import Path
 
-BUDGET = json.loads((Path(__file__).resolve().parents[2] / "policy" / "perf_budget.json").read_text())
+BUDGET = json.loads((Path(__file__).resolve().parents[2] / "policy" / "perf_budget.json").read_text(encoding="utf-8"))
 
 
 def _trace(n, rnd):

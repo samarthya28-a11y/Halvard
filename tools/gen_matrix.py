@@ -41,6 +41,6 @@ def render():
 if __name__ == "__main__":
     js, md = render()
     (ROOT / "policy").mkdir(exist_ok=True)
-    (ROOT / "policy" / "authority_matrix.json").write_text(js)
-    (ROOT / "docs" / "03-authority-matrix.md").write_text(md)
+    (ROOT / "policy" / "authority_matrix.json").write_text(js, encoding="utf-8")
+    (ROOT / "docs" / "03-authority-matrix.md").write_text(md, encoding="utf-8")
     print("wrote policy/authority_matrix.json and docs/03-authority-matrix.md")

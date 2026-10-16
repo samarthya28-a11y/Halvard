@@ -1,6 +1,7 @@
 """Privileged lane: runs the REAL fanotify sensor against REAL separate processes on a private tmpfs mount.
 Skipped (loudly, in the summary) when not root or fanotify is unavailable."""
 import hashlib, os, pathlib, signal, subprocess, sys, tempfile, time, unittest
+if not sys.platform.startswith("linux"): raise unittest.SkipTest("the real fanotify sensor exists only on Linux")
 from helpers import *
 from halvard.clock import Clock
 from halvard.platforms import linux
@@ -84,14 +85,14 @@ class LinuxSensorTests(unittest.TestCase):
 
     def test_kernel_denies_every_open_by_a_frozen_process(self):
         """Direct proof of the freeze: mark a live process blocked and watch the kernel refuse its next write."""
-        target = os.path.join(self.mnt, "precious.txt"); pathlib.Path(target).write_text("original")
+        target = os.path.join(self.mnt, "precious.txt"); pathlib.Path(target).write_text("original", encoding="utf-8")
         self.start()
         child = subprocess.Popen([sys.executable, "-c", f"import sys; sys.stdin.readline(); open({target!r}, 'wb').write(b'overwritten')"],
                                  stdin=subprocess.PIPE, stderr=subprocess.PIPE, text=True); self.children.append(child)
         time.sleep(0.4); self.agent.blocked.add(child.pid)
         _, err = child.communicate("go\n", timeout=20)
         self.assertNotEqual(child.returncode, 0); self.assertIn("PermissionError", err)
-        self.assertEqual(pathlib.Path(target).read_text(), "original"); self.assertGreaterEqual(self.sensor.stats["denied"], 1)
+        self.assertEqual(pathlib.Path(target).read_text(encoding="utf-8"), "original"); self.assertGreaterEqual(self.sensor.stats["denied"], 1)
 
     # ---- F006 on Linux: pre-execution verdict, kernel-enforced ----
     def test_known_bad_executable_is_denied_by_the_kernel_and_quarantined(self):
@@ -134,7 +135,7 @@ class LinuxSensorTests(unittest.TestCase):
         self.assertEqual(r.status, "pending_approval"); res = eng.approve(r.action_id, admin); self.assertEqual(res.status, "executed", res.message)
         d = pathlib.Path(res.detail["dir"]); self.assertIn(b"HALVARD-MEM-MARKER-7Q", (d / "memory" / f"{child.pid}.bin").read_bytes())
         self.assertEqual(forensics.verify_collection(d, self.agent.spool.seal_bytes), (True, []))
-        (d / "triage.json").write_text("{}"); ok, problems = forensics.verify_collection(d, self.agent.spool.seal_bytes)
+        (d / "triage.json").write_text("{}", encoding="utf-8"); ok, problems = forensics.verify_collection(d, self.agent.spool.seal_bytes)
         self.assertFalse(ok); self.assertTrue(any("triage.json" in p for p in problems))
         led = next(e for e in self.agent.spool.entries() if e["kind"] == "relay.action_executed" and e["public"].get("profile") == "memory")
         self.assertTrue(led["public"]["personal_data"]); self.assertNotIn("HALVARD-MEM-MARKER", str(led))      # contents never enter the ledger

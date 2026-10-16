@@ -9,7 +9,7 @@ import json, sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-SCHEMA = (Path(__file__).parent / "graph" / "schema.sql").read_text()
+SCHEMA = (Path(__file__).parent / "graph" / "schema.sql").read_text(encoding="utf-8")
 
 
 class TenantIsolationError(PermissionError):

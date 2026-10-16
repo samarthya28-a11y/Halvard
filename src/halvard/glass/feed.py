@@ -40,7 +40,7 @@ class VulnFeed:
 
     @classmethod
     def load(cls, path):
-        d = json.loads(Path(path).read_text())
+        d = json.loads(Path(path).read_text(encoding="utf-8"))
         return cls([Advisory(x["id"], x["product"], x["affected_below"], float(x["base_severity"]), x["exploit"], x["surface"], x.get("port"), x["summary"], x.get("workaround")) for x in d["advisories"]], d.get("synced_with_upstream"))
 
     def matching(self, product, version): return [a for a in self.advisories if a.affects(product, version)]

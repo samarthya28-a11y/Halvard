@@ -50,12 +50,12 @@ class SimHost:
         data = Path(path).read_bytes(); d = hashlib.sha256(data).hexdigest()
         qid = f"q-{d[:16]}"
         dest = self.root / "quarantine" / qid
-        shutil.move(path, dest); (self.root / "quarantine" / (qid + ".meta")).write_text(str(path))
+        shutil.move(path, dest); (self.root / "quarantine" / (qid + ".meta")).write_text(str(path), encoding="utf-8")
         return qid
 
     def restore_quarantine(self, qid):
         src = self.root / "quarantine" / qid
-        orig = (self.root / "quarantine" / (qid + ".meta")).read_text()
+        orig = (self.root / "quarantine" / (qid + ".meta")).read_text(encoding="utf-8")
         Path(orig).parent.mkdir(parents=True, exist_ok=True); shutil.move(src, orig)
         (self.root / "quarantine" / (qid + ".meta")).unlink()
         return orig
@@ -75,9 +75,10 @@ class SimHost:
 
     def mount_of(self, path):
         """The mount a path lives on (longest prefix), or None for the ordinary system volume."""
-        p = str(path); best = None
+        norm = (lambda s: str(s).replace("\\", "/").rstrip("/").lower()) if os.name == "nt" else (lambda s: str(s).replace("\\", "/").rstrip("/"))
+        p = norm(path); best = None
         for m, info in self.mounts.items():
-            if (p == m or p.startswith(m.rstrip("/") + "/")) and (best is None or len(m) > len(best[0])): best = (m, info)
+            if (p == norm(m) or p.startswith(norm(m) + "/")) and (best is None or len(m) > len(best[0])): best = (m, info)
         return {**best[1], "mount": best[0]} if best else None
 
     def encryption_status(self):

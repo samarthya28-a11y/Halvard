@@ -1,7 +1,7 @@
 import os, tempfile, unittest, pathlib
 from helpers import *
 from halvard.ward.agent import Blocked
-from halvard.ward.verdict import EICAR
+from halvard.ward.verdict import EICAR, TEST_MARKER
 from halvard.ward.policy import PolicyBundle, BundleError, load_bundle
 from halvard.relay import isolation
 
@@ -11,8 +11,8 @@ class WardMiscTests(unittest.TestCase):
 
     # F004 / F006
     def test_known_bad_blocked_with_no_connectivity_and_quarantined(self):
-        self.a.set_online(False); f = os.path.join(self.tmp, "t.txt"); pathlib.Path(f).write_bytes(EICAR)
-        with self.assertRaises(Blocked): self.a.pre_execute(f, EICAR)
+        self.a.set_online(False); f = os.path.join(self.tmp, "t.txt"); pathlib.Path(f).write_bytes(TEST_MARKER)       # on disk: a harmless marker, because real antivirus deletes the EICAR file the moment it is written
+        with self.assertRaises(Blocked): self.a.pre_execute(f, TEST_MARKER)
         self.assertFalse(os.path.exists(f))
         rec = next(e for e in self.a.spool.entries() if e["kind"] == "ward.exec_verdict")
         self.assertIn("WARD.OFFLINE_PREVENTION", rec["controls"]); self.assertEqual(rec["public"]["source"], "local_cache")
@@ -37,7 +37,7 @@ class WardMiscTests(unittest.TestCase):
     # F016
     def test_modified_agent_file_is_restored_and_logged(self):
         p = self.tmp + "/agent/install/ward.exe"; pathlib.Path(p).write_bytes(b"patched by malware")
-        self.assertEqual(self.a.tamper.check(), [p]); self.assertEqual(pathlib.Path(p).read_bytes(), b"agent-binary")
+        self.assertEqual([os.path.normpath(x) for x in self.a.tamper.check()], [os.path.normpath(p)]); self.assertEqual(pathlib.Path(p).read_bytes(), b"agent-binary")
         self.assertTrue(any(e["kind"] == "ward.tamper_detected" for e in self.a.spool.entries()))
 
     def test_deleted_agent_file_is_restored(self):
@@ -63,7 +63,7 @@ class WardMiscTests(unittest.TestCase):
         from halvard.relay import journal as J
         rid, _ = self.a.journal.before(1, "write", os.path.join(self.tmp, "gone.txt")); real = J.fingerprint
         J.fingerprint = lambda p: (_ for _ in ()).throw(FileNotFoundError(p))
-        try: pathlib.Path(self.tmp, "gone.txt").write_text("x"); self.a.journal.after(rid, os.path.join(self.tmp, "gone.txt"))
+        try: pathlib.Path(self.tmp, "gone.txt").write_text("x", encoding="utf-8"); self.a.journal.after(rid, os.path.join(self.tmp, "gone.txt"))
         finally: J.fingerprint = real
 
     # policy bundle

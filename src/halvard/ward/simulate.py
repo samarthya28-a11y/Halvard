@@ -15,7 +15,7 @@ class SimulationNotAuthorized(PermissionError):
 
 
 def authorize(root):
-    Path(root).mkdir(parents=True, exist_ok=True); (Path(root) / MARKER).write_text("customer-authorized simulation root\n")
+    Path(root).mkdir(parents=True, exist_ok=True); (Path(root) / MARKER).write_text("customer-authorized simulation root\n", encoding="utf-8")
 
 
 def seed_files(root, n=40, seed=7, dirs=3):
