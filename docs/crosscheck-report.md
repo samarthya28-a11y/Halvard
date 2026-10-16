@@ -270,4 +270,4 @@ Fixes are on branch `crosscheck-fixes`. All 42 cross-check tests now pass, the a
 | M7 symlink | tripwire keys resolve links; the gate costs nothing when a device has no tripwires |
 | Low: prose | setup messages, the demo confidence line, and four docstrings no longer claim what the reference build does not do |
 
-New mutations: 23 (all killed; three survived the first pass and each got a test). Full sweep result: see the end of this file once it has run.
+New mutations: 23 (all killed; three survived the first pass and each got a test). Full sweep result: 364 mutations. 360 were killed outright by a named failing test. Four were not at first: one survived (a public ledger field could carry an email address; a test was added) and three were skipped because earlier fixes had changed the code they targeted (patterns refreshed). All four were re-run on their own and are killed. Final suite: 510 tests, all passing on Linux..
