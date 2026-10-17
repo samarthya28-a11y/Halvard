@@ -6,11 +6,13 @@ The same fixture files are replayed here against the Python reference; the nativ
 
 Fixture file (JSON lines). Line 1 is the header, every other line is one event.
   header: {"fixture": 1, "name", "description", "processes": {"<pid>": "name.exe"}, "seed_files": [{"path", "kind", "size"}],
-           "tripwires": [{"id", "path", "kind"}], "offline": bool, "expect": {...}}
+           "tripwires": [{"id", "path", "kind"}], "offline": bool, "expect": {...}, "golden": "AAAD..."}
+  golden: one letter per event, A = allowed, D = denied, recorded from the Python reference by tools/gen_sensor_fixtures.py.
+          Every sensor implementation (Python, Rust) must reproduce it exactly.
   event:  {"seq", "t_ms", "pid", "op": create|write|rename|delete|read, "path", "dst"?, "data"?: {"kind": text|random|magic, "size", "seed"}}
 Paths are relative to the root folder the replay is given. Decision answers: "allow" or "deny".
 """
-import hashlib, json, os, random
+import hashlib, json, os
 from pathlib import Path
 
 SCHEMA_VERSION = 1
@@ -30,7 +32,8 @@ def materialize(spec, ext=""):
     """Deterministic bytes for a data spec, so fixtures stay small text files."""
     size, seed = int(spec.get("size", 1000)), int(spec.get("seed", 0))
     kind = spec.get("kind", "text")
-    if kind == "random": return random.Random(seed).randbytes(size)
+    if kind == "random": return b"".join(hashlib.sha256(f"{seed}:{i}".encode()).digest() for i in range((size + 31) // 32))[:size]    # SHA-256 counter stream: any language reproduces it
+    if kind == "zeros": return bytes(size)
     if kind == "magic": return (b"\xff\xd8\xff" + bytes(range(256)) * (size // 256 + 1))[:size]
     return ((b"Meeting notes %d. " % seed) * (size // 12 + 1))[:size]
 
@@ -47,11 +50,14 @@ def tripwire_specs(root, header):
     return [{"id": t["id"], "kind": t["kind"], "path": str(Path(root, t["path"]))} for t in header.get("tripwires", [])]
 
 
-def replay(fs, events, root):
-    """Apply events through the file-hook contract. Returns [(seq, "allow"|"deny")]. Stops nothing itself: a denied event is just recorded."""
+def replay(fs, events, root, clock=None):
+    """Apply events through the file-hook contract. Returns [(seq, "allow"|"deny")]. Stops nothing itself: a denied event is just recorded. With a ManualClock, advances it by each event's t_ms."""
     from .ward.agent import Blocked
     out = []
+    last_ms = 0
     for e in events:
+        if clock is not None:      # events carry their own time: the detector's 30 s window must see it
+            clock.advance((e.get("t_ms", last_ms) - last_ms) / 1000.0); last_ms = e.get("t_ms", last_ms)
         p = os.path.join(root, e["path"]); pid = e["pid"]
         try:
             if e["op"] == "create": fs.create(pid, p, materialize(e.get("data", {})))

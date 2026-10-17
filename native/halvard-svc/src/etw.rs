@@ -2,7 +2,7 @@
 //! Needs an elevated process (Administrator) or membership of "Performance Log Users"; without that StartTrace fails with ACCESS_DENIED.
 //! Event ids/keywords were read from the provider manifest on this machine (`wevtutil gp Microsoft-Windows-Kernel-File /ge`):
 //! 12 Create (0xa0) · 16 Write (0x220) · 26 DeletePath (0x400) · 27 RenamePath (0x800) · 30 CreateNewFile (0x1000).
-use crate::guard::{FileEvent, Guard};
+use crate::guard::{DiskContent, FileEvent, Guard};
 use crate::suspend;
 use std::collections::HashMap;
 use std::ffi::c_void;
@@ -207,9 +207,10 @@ unsafe extern "system" fn on_record(rec: *mut EVENT_RECORD) {
     let frozen_now = std::iter::once(ev).chain(extra).filter_map(|e| st.guard.on_event(e)).next();
     if let Some(f) = frozen_now {
         let frozen = suspend::suspend(f.pid);
+        let kind = if f.reason.starts_with("bulk encryption") { "bulk_encryption" } else { "tripwire" };
         crate::logsink::emit(&format!(
-            "{{\"alert\":\"tripwire\",\"pid\":{},\"process\":{:?},\"path\":{:?},\"op\":\"{:?}\",\"frozen\":{},\"error\":{:?},\"t_ms\":{}}}",
-            f.pid, f.process, f.path, f.op, frozen.is_ok(), frozen.err().unwrap_or_default(), st.t0.elapsed().as_millis()
+            "{{\"alert\":\"{kind}\",\"pid\":{},\"process\":{:?},\"path\":{:?},\"op\":\"{:?}\",\"frozen\":{},\"error\":{:?},\"reason\":{:?},\"t_ms\":{}}}",
+            f.pid, f.process, f.path, f.op, frozen.is_ok(), frozen.err().unwrap_or_default(), f.reason, st.t0.elapsed().as_millis()
         ));
     }
 }
@@ -217,17 +218,30 @@ unsafe extern "system" fn on_record(rec: *mut EVENT_RECORD) {
 /// Runs until Ctrl+C. Errors are plain sentences, including the elevation hint.
 pub fn run(tripwires: Vec<String>, trust: Vec<String>, debug: bool) -> Result<(), String> {
     DEBUG.store(debug, Ordering::Relaxed);
-    *STATE.lock().unwrap() = Some(State {
-        guard: Guard::new(&tripwires, &trust, std::process::id(), Box::new({
-            let cache: Mutex<HashMap<u32, String>> = Mutex::new(HashMap::new());
-            move |pid| {
-                let mut c = cache.lock().unwrap();
-                if c.len() > 4096 {
-                    c.clear();
-                }
-                c.entry(pid).or_insert_with(|| image_name(pid)).clone()
+    let mut guard = Guard::new(&tripwires, &trust, std::process::id(), Box::new({
+        let cache: Mutex<HashMap<u32, String>> = Mutex::new(HashMap::new());
+        move |pid| {
+            let mut c = cache.lock().unwrap();
+            if c.len() > 4096 {
+                c.clear();
             }
-        })),
+            c.entry(pid).or_insert_with(|| image_name(pid)).clone()
+        }
+    }))
+    .with_content(Box::new(DiskContent)); // turns the behavioral detector on
+    // "before" pictures: remember the first bytes of the files in the folders that hold tripwires (those folders are what needs protecting)
+    let mut warmed = 0;
+    let mut seen_dirs = std::collections::HashSet::new();
+    for t in &tripwires {
+        if let Some(dir) = std::path::Path::new(t).parent().map(|p| p.to_string_lossy().to_string()) {
+            if seen_dirs.insert(dir.to_lowercase()) {
+                warmed += guard.warm(&dir, 50_000);
+            }
+        }
+    }
+    crate::logsink::emit(&format!("{{\"service\":\"warmed\",\"files\":{warmed}}}"));
+    *STATE.lock().unwrap() = Some(State {
+        guard,
         t0: Instant::now(),
         events: 0,
         unreadable: 0,

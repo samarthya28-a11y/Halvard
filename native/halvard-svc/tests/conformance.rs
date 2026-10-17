@@ -1,5 +1,5 @@
 //! The native brain must give the same answers as the Python reference on the shared fixtures (tests/fixtures/sensor).
-//! M1 covers the tripwire brain only; the ransomware fixture needs the bulk-encryption detector (M2) and is checked to be NOT yet stopped, so M2 flips it.
+//! M1 covered the tripwire brain; M2 adds the bulk-encryption detector, so the ransomware fixture is now stopped too.
 use halvard_svc::replay::{load, run};
 use std::path::PathBuf;
 
@@ -31,10 +31,26 @@ fn benign_compressor_is_never_blocked() {
 }
 
 #[test]
-fn ransomware_without_a_tripwire_is_not_stopped_until_the_detector_is_ported() {
-    // Tripwires alone cannot stop this burst: the Python reference stops it with the behavioral detector (M2).
-    let (res, _) = run(&load(&fixture("ransomware_overwrite_rename")).unwrap());
-    assert!(res.iter().all(|(_, a)| *a), "if this fails the detector landed: update expectations to match the fixture header (max 20 changes)");
+fn ransomware_is_stopped_after_eight_files_exactly_like_the_python_reference() {
+    let fx = load(&fixture("ransomware_overwrite_rename")).unwrap();
+    let (res, brain) = run(&fx);
+    let allowed = res.iter().filter(|(_, a)| *a).count();
+    assert_eq!(allowed, 15, "8 overwrites and 7 renames happen, then the process is stopped");
+    assert_eq!(res.iter().find(|(_, a)| !*a).map(|(s, _)| *s), Some(16));
+    assert_eq!(brain.blocked(), vec![4242]);
+}
+
+#[test]
+fn every_fixture_reproduces_the_golden_decisions_recorded_from_the_python_reference() {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/sensor");
+    let mut n = 0;
+    for f in std::fs::read_dir(dir).unwrap().flatten().filter(|f| f.path().extension().map(|e| e == "jsonl").unwrap_or(false)) {
+        let fx = load(&f.path()).unwrap();
+        let (res, _) = run(&fx);
+        assert_eq!(halvard_svc::replay::letters(&res), fx.header["golden"].as_str().unwrap(), "{}", f.path().display());
+        n += 1;
+    }
+    assert!(n >= 9, "expected all nine shipped fixtures, saw {n}");
 }
 
 #[test]

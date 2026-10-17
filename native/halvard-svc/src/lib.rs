@@ -1,6 +1,7 @@
 //! Halvard native service, Stage A prototype.
 //! `brain` decides, `replay` feeds it recorded events (the same fixtures the Python reference replays), `watch` and `suspend` are the Windows parts.
 pub mod brain;
+pub mod detect;
 pub mod guard;
 pub mod logsink;
 pub mod place;

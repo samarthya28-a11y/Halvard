@@ -1,0 +1,41 @@
+{"fixture": 1, "name": "ransomware_copy_delete", "description": "Writes an encrypted sibling next to each document and deletes the original; stopped after eight originals are gone.", "processes": {"4300": "locker.exe"}, "seed_files": [{"path": "docs/file0.docx", "kind": "text", "size": 3000}, {"path": "docs/file1.docx", "kind": "text", "size": 3000}, {"path": "docs/file2.docx", "kind": "text", "size": 3000}, {"path": "docs/file3.docx", "kind": "text", "size": 3000}, {"path": "docs/file4.docx", "kind": "text", "size": 3000}, {"path": "docs/file5.docx", "kind": "text", "size": 3000}, {"path": "docs/file6.docx", "kind": "text", "size": 3000}, {"path": "docs/file7.docx", "kind": "text", "size": 3000}, {"path": "docs/file8.docx", "kind": "text", "size": 3000}, {"path": "docs/file9.docx", "kind": "text", "size": 3000}, {"path": "docs/file10.docx", "kind": "text", "size": 3000}, {"path": "docs/file11.docx", "kind": "text", "size": 3000}, {"path": "docs/file12.docx", "kind": "text", "size": 3000}, {"path": "docs/file13.docx", "kind": "text", "size": 3000}, {"path": "docs/file14.docx", "kind": "text", "size": 3000}, {"path": "docs/file15.docx", "kind": "text", "size": 3000}, {"path": "docs/file16.docx", "kind": "text", "size": 3000}, {"path": "docs/file17.docx", "kind": "text", "size": 3000}, {"path": "docs/file18.docx", "kind": "text", "size": 3000}, {"path": "docs/file19.docx", "kind": "text", "size": 3000}], "offline": true, "expect": {"deny_pids": [4300], "max_allowed_changes": 17}, "golden": "AAAAAAAAAAAAAAAADDDDDDDDDDDDDDDDDDDDDDDD"}
+{"seq": 1, "t_ms": 0, "pid": 4300, "op": "create", "path": "docs/file0.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 0}}
+{"seq": 2, "t_ms": 40, "pid": 4300, "op": "delete", "path": "docs/file0.docx"}
+{"seq": 3, "t_ms": 80, "pid": 4300, "op": "create", "path": "docs/file1.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 1}}
+{"seq": 4, "t_ms": 120, "pid": 4300, "op": "delete", "path": "docs/file1.docx"}
+{"seq": 5, "t_ms": 160, "pid": 4300, "op": "create", "path": "docs/file2.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 2}}
+{"seq": 6, "t_ms": 200, "pid": 4300, "op": "delete", "path": "docs/file2.docx"}
+{"seq": 7, "t_ms": 240, "pid": 4300, "op": "create", "path": "docs/file3.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 3}}
+{"seq": 8, "t_ms": 280, "pid": 4300, "op": "delete", "path": "docs/file3.docx"}
+{"seq": 9, "t_ms": 320, "pid": 4300, "op": "create", "path": "docs/file4.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 4}}
+{"seq": 10, "t_ms": 360, "pid": 4300, "op": "delete", "path": "docs/file4.docx"}
+{"seq": 11, "t_ms": 400, "pid": 4300, "op": "create", "path": "docs/file5.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 5}}
+{"seq": 12, "t_ms": 440, "pid": 4300, "op": "delete", "path": "docs/file5.docx"}
+{"seq": 13, "t_ms": 480, "pid": 4300, "op": "create", "path": "docs/file6.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 6}}
+{"seq": 14, "t_ms": 520, "pid": 4300, "op": "delete", "path": "docs/file6.docx"}
+{"seq": 15, "t_ms": 560, "pid": 4300, "op": "create", "path": "docs/file7.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 7}}
+{"seq": 16, "t_ms": 600, "pid": 4300, "op": "delete", "path": "docs/file7.docx"}
+{"seq": 17, "t_ms": 640, "pid": 4300, "op": "create", "path": "docs/file8.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 8}}
+{"seq": 18, "t_ms": 680, "pid": 4300, "op": "delete", "path": "docs/file8.docx"}
+{"seq": 19, "t_ms": 720, "pid": 4300, "op": "create", "path": "docs/file9.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 9}}
+{"seq": 20, "t_ms": 760, "pid": 4300, "op": "delete", "path": "docs/file9.docx"}
+{"seq": 21, "t_ms": 800, "pid": 4300, "op": "create", "path": "docs/file10.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 10}}
+{"seq": 22, "t_ms": 840, "pid": 4300, "op": "delete", "path": "docs/file10.docx"}
+{"seq": 23, "t_ms": 880, "pid": 4300, "op": "create", "path": "docs/file11.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 11}}
+{"seq": 24, "t_ms": 920, "pid": 4300, "op": "delete", "path": "docs/file11.docx"}
+{"seq": 25, "t_ms": 960, "pid": 4300, "op": "create", "path": "docs/file12.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 12}}
+{"seq": 26, "t_ms": 1000, "pid": 4300, "op": "delete", "path": "docs/file12.docx"}
+{"seq": 27, "t_ms": 1040, "pid": 4300, "op": "create", "path": "docs/file13.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 13}}
+{"seq": 28, "t_ms": 1080, "pid": 4300, "op": "delete", "path": "docs/file13.docx"}
+{"seq": 29, "t_ms": 1120, "pid": 4300, "op": "create", "path": "docs/file14.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 14}}
+{"seq": 30, "t_ms": 1160, "pid": 4300, "op": "delete", "path": "docs/file14.docx"}
+{"seq": 31, "t_ms": 1200, "pid": 4300, "op": "create", "path": "docs/file15.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 15}}
+{"seq": 32, "t_ms": 1240, "pid": 4300, "op": "delete", "path": "docs/file15.docx"}
+{"seq": 33, "t_ms": 1280, "pid": 4300, "op": "create", "path": "docs/file16.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 16}}
+{"seq": 34, "t_ms": 1320, "pid": 4300, "op": "delete", "path": "docs/file16.docx"}
+{"seq": 35, "t_ms": 1360, "pid": 4300, "op": "create", "path": "docs/file17.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 17}}
+{"seq": 36, "t_ms": 1400, "pid": 4300, "op": "delete", "path": "docs/file17.docx"}
+{"seq": 37, "t_ms": 1440, "pid": 4300, "op": "create", "path": "docs/file18.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 18}}
+{"seq": 38, "t_ms": 1480, "pid": 4300, "op": "delete", "path": "docs/file18.docx"}
+{"seq": 39, "t_ms": 1520, "pid": 4300, "op": "create", "path": "docs/file19.docx.enc", "data": {"kind": "random", "size": 3000, "seed": 19}}
+{"seq": 40, "t_ms": 1560, "pid": 4300, "op": "delete", "path": "docs/file19.docx"}

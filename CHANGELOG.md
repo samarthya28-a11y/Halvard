@@ -2,6 +2,15 @@
 
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
+## 0.9.0 - 2026-10-17
+- **M2: the bulk-encryption detector is ported to Rust** (`native/halvard-svc/src/detect.rs`, `brain.rs::on_op`): same signals (magic destroyed, entropy jump, extension change), same thresholds (8 distinct files inside 30 s), same delete-after-random-sibling rule.
+- **Conformance, not just claims:** fixtures now carry `golden` decisions recorded from the Python reference (`tools/gen_sensor_fixtures.py`); Python AND Rust must reproduce them exactly. Nine fixtures: ransomware overwrite+rename, copy+delete, entropy jump, tripwire first touch, below threshold (7 files, not stopped), slow burn (outside the 30 s window, not stopped), mixed processes (only the ransomware stopped), office session and compressor (never stopped). Python replay now advances its clock by each event's `t_ms`; random fixture data is a SHA-256 counter stream so any language reproduces it; new data kind `zeros`.
+- Three deliberate weakenings of the Rust detector (threshold 9, window never expires, entropy-jump removed) were each caught by the golden test, then reverted.
+- **Live guard is content-aware** (`guard.rs`): `Content` trait (`DiskContent` reads through `\\?\GLOBALROOT` for ETW's NT paths), before-picture cache warmed at start for the folders holding tripwires and refreshed by benign writes. With no before-picture a file gives no "signature destroyed" signal: documented Stage A limit, tested. Alerts now say `tripwire` or `bulk_encryption` and carry the reason.
+- Journal/rollback was NOT ported: Stage A sees writes after they happen, so it cannot capture a before-image (that needs the Stage B minifilter, docs/25). Honest scope: detect and freeze, not restore.
+- `tools/etw_smoke.ps1` gained a fourth attacker: a ransomware-style burst (16 documents overwritten with random bytes, no decoy) that must be frozen by the detector before it finishes. **Not yet run live** (Administrator): ETW delivers events up to about a second late, so a few files will be lost before the freeze; the check is "frozen before the burst finishes".
+- Tests: Python 521 (3 skipped on Windows), Rust 38. MSI 0.9.0.
+
 ## 0.8.16 - 2026-10-17
 - ETW delete and rename detection no longer relies on guessed property names: the guard asks Windows (TDH) which string properties the event has and judges every path-looking value (old and new name of a rename). `guard --debug` prints the real contents of delete, rename and new-file events (first 300) so the layout can be confirmed from a real run.
 - `tools/etw_smoke.ps1` now runs three fake attackers at once (overwrite, delete, rename, each on its own decoy) and saves the guard's output with the debug dump. **NOT yet run live** (needs Administrator): run it and send `C:\Users\ASUS\halvard-etw-smoke.txt`. Delete and rename detection stay "unverified" until it passes.

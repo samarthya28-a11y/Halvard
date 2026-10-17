@@ -1,0 +1,21 @@
+{"fixture": 1, "name": "ransomware_entropy_jump", "description": "Documents that were mostly empty (no recognizable signature) are overwritten with random data: the entropy-jump signal.", "processes": {"4301": "burst.exe"}, "seed_files": [{"path": "docs/file0.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file1.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file2.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file3.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file4.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file5.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file6.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file7.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file8.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file9.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file10.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file11.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file12.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file13.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file14.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file15.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file16.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file17.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file18.docx", "kind": "zeros", "size": 3000}, {"path": "docs/file19.docx", "kind": "zeros", "size": 3000}], "offline": true, "expect": {"deny_pids": [4301], "max_allowed_changes": 8}, "golden": "AAAAAAAADDDDDDDDDDDD"}
+{"seq": 1, "t_ms": 0, "pid": 4301, "op": "write", "path": "docs/file0.docx", "data": {"kind": "random", "size": 3000, "seed": 0}}
+{"seq": 2, "t_ms": 40, "pid": 4301, "op": "write", "path": "docs/file1.docx", "data": {"kind": "random", "size": 3000, "seed": 1}}
+{"seq": 3, "t_ms": 80, "pid": 4301, "op": "write", "path": "docs/file2.docx", "data": {"kind": "random", "size": 3000, "seed": 2}}
+{"seq": 4, "t_ms": 120, "pid": 4301, "op": "write", "path": "docs/file3.docx", "data": {"kind": "random", "size": 3000, "seed": 3}}
+{"seq": 5, "t_ms": 160, "pid": 4301, "op": "write", "path": "docs/file4.docx", "data": {"kind": "random", "size": 3000, "seed": 4}}
+{"seq": 6, "t_ms": 200, "pid": 4301, "op": "write", "path": "docs/file5.docx", "data": {"kind": "random", "size": 3000, "seed": 5}}
+{"seq": 7, "t_ms": 240, "pid": 4301, "op": "write", "path": "docs/file6.docx", "data": {"kind": "random", "size": 3000, "seed": 6}}
+{"seq": 8, "t_ms": 280, "pid": 4301, "op": "write", "path": "docs/file7.docx", "data": {"kind": "random", "size": 3000, "seed": 7}}
+{"seq": 9, "t_ms": 320, "pid": 4301, "op": "write", "path": "docs/file8.docx", "data": {"kind": "random", "size": 3000, "seed": 8}}
+{"seq": 10, "t_ms": 360, "pid": 4301, "op": "write", "path": "docs/file9.docx", "data": {"kind": "random", "size": 3000, "seed": 9}}
+{"seq": 11, "t_ms": 400, "pid": 4301, "op": "write", "path": "docs/file10.docx", "data": {"kind": "random", "size": 3000, "seed": 10}}
+{"seq": 12, "t_ms": 440, "pid": 4301, "op": "write", "path": "docs/file11.docx", "data": {"kind": "random", "size": 3000, "seed": 11}}
+{"seq": 13, "t_ms": 480, "pid": 4301, "op": "write", "path": "docs/file12.docx", "data": {"kind": "random", "size": 3000, "seed": 12}}
+{"seq": 14, "t_ms": 520, "pid": 4301, "op": "write", "path": "docs/file13.docx", "data": {"kind": "random", "size": 3000, "seed": 13}}
+{"seq": 15, "t_ms": 560, "pid": 4301, "op": "write", "path": "docs/file14.docx", "data": {"kind": "random", "size": 3000, "seed": 14}}
+{"seq": 16, "t_ms": 600, "pid": 4301, "op": "write", "path": "docs/file15.docx", "data": {"kind": "random", "size": 3000, "seed": 15}}
+{"seq": 17, "t_ms": 640, "pid": 4301, "op": "write", "path": "docs/file16.docx", "data": {"kind": "random", "size": 3000, "seed": 16}}
+{"seq": 18, "t_ms": 680, "pid": 4301, "op": "write", "path": "docs/file17.docx", "data": {"kind": "random", "size": 3000, "seed": 17}}
+{"seq": 19, "t_ms": 720, "pid": 4301, "op": "write", "path": "docs/file18.docx", "data": {"kind": "random", "size": 3000, "seed": 18}}
+{"seq": 20, "t_ms": 760, "pid": 4301, "op": "write", "path": "docs/file19.docx", "data": {"kind": "random", "size": 3000, "seed": 19}}

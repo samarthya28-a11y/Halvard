@@ -1,5 +1,6 @@
 # Live test of the ETW guard. MUST be run from an elevated (Administrator) PowerShell.
-# Three fake attackers, one per action, each touching its OWN decoy file: one overwrites it, one deletes it, one renames it.
+# Four fake attackers. Three each touch their OWN decoy file (overwrite, delete, rename). The fourth is a ransomware-style burst on ordinary documents
+# with NO decoy involved: it overwrites 16 documents with random bytes and must be frozen by the behavioral detector before it finishes.
 # Each must be frozen. The guard runs with --debug so the real contents of delete/rename events are saved for review.
 param([string]$Out = "$env:USERPROFILE\halvard-etw-smoke.txt")
 $ErrorActionPreference = "Stop"
@@ -18,6 +19,9 @@ try {
     @{ Name = "rename"; Trap = "$d\!000-rename.xlsx"; Act = "Rename-Item '$d\!000-rename.xlsx' '!000-rename.locked'" }
   )
   foreach ($c in $cases) { Set-Content $c.Trap "decoy"; $c.Tick = "$d\ticks-$($c.Name).txt" }
+  # documents for the burst test: created BEFORE the guard starts, so it can remember what they looked like
+  $docs = Join-Path $d "burst-docs"; New-Item -ItemType Directory $docs | Out-Null
+  1..16 | ForEach-Object { Set-Content (Join-Path $docs ("report{0:D2}.txt" -f $_)) ("Meeting notes $_. " * 300) }
   & $exe stop | Out-Null
   $tw = ($cases | ForEach-Object { "`"$($_.Trap)`"" }) -join " "
   $g = Start-Process $exe -ArgumentList (@("guard") + ($cases | ForEach-Object { "`"$($_.Trap)`"" }) + @("--debug")) -PassThru -WindowStyle Hidden -RedirectStandardOutput "$d\guard_out.txt" -RedirectStandardError "$d\guard_err.txt"
@@ -28,6 +32,11 @@ try {
     $c.Proc = Start-Process powershell -ArgumentList "-NoProfile", "-Command", $script -PassThru -WindowStyle Hidden
     $procs += $c.Proc
   }
+  # the burst: overwrite each document with random bytes, 150 ms apart (about 2.4 s in all), no decoy involved. ETW delivers events up to about a
+# second late, so a few files are lost before the freeze; the check is that the burst is frozen BEFORE it finishes.
+  $burst = "`$r = New-Object Random 7; foreach(`$f in (Get-ChildItem '$docs' -Filter *.txt | Sort-Object Name)){ `$b = New-Object byte[] 4000; `$r.NextBytes(`$b); [IO.File]::WriteAllBytes(`$f.FullName, `$b); Start-Sleep -Milliseconds 150 }; Start-Sleep 30"
+  $bp = Start-Process powershell -ArgumentList "-NoProfile", "-Command", $burst -PassThru -WindowStyle Hidden
+  $procs += $bp
   Start-Sleep 7
   $out = Get-Content "$d\guard_out.txt" -Raw
   foreach ($c in $cases) {
@@ -35,6 +44,9 @@ try {
     $hit = $out -match ('"pid":' + $c.Proc.Id + ',"process":"powershell.exe"[^}]*"frozen":true')
     Check ($s1 -eq $s2 -and $hit) "$($c.Name): attacker pid $($c.Proc.Id) frozen and logged (ticks stopped at $s1 bytes)" "$($c.Name): ticks $s1 -> $s2, alert for this pid: $hit"
   }
+  $changed = @(Get-ChildItem $docs -Filter *.txt | Where-Object { -not ((Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue) -like "Meeting notes*") }).Count
+  $bhit = $out -match ('"alert":"bulk_encryption","pid":' + $bp.Id + ',"process":"powershell.exe"[^}]*"frozen":true')
+  Check ($bhit -and $changed -lt 16) "burst: ransomware-style attacker pid $($bp.Id) frozen by the behavioral detector after $changed of 16 documents were overwritten" "burst: alert for this pid: $bhit; documents overwritten: $changed of 16 (a Stage A limit applies, see docs/25)"
   Say "---- guard output (alerts and --debug dump of delete/rename/new-file events) ----"
   ($out -split "`n" | Select-Object -First 60) | ForEach-Object { Say $_ }
   Say ("RESULT: " + $(if ($fail -eq 0) { "ALL PASS" } else { "$fail FAILED (send me this file)" }))

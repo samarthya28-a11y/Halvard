@@ -21,7 +21,7 @@ class ReplayTests(unittest.TestCase):
         for pid, n in header["processes"].items(): host.spawn(int(pid), n)
         seeded = sensor.seed(root, header)
         if specs: a._place_tripwires()
-        res = sensor.replay(fs, events, root)
+        res = sensor.replay(fs, events, root, clock=clock)
         return header, events, res, a, root, seeded
 
     def check(self, name):
@@ -43,6 +43,16 @@ class ReplayTests(unittest.TestCase):
     def test_tripwire_first_touch_stops_before_any_real_file_changes(self): self.check("tripwire_first_touch")
     def test_office_session_is_never_blocked(self): self.check("benign_office_session")
     def test_compressor_is_never_blocked(self): self.check("benign_compressor")
+    def test_copy_and_delete_style_is_stopped(self): self.check("ransomware_copy_delete")
+    def test_entropy_jump_style_is_stopped(self): self.check("ransomware_entropy_jump")
+    def test_seven_files_is_below_the_threshold(self): self.check("below_threshold")
+    def test_a_slow_burn_outside_the_window_is_not_stopped(self): self.check("slow_burn")
+    def test_only_the_ransomware_is_stopped_in_a_mixed_workload(self): self.check("mixed_processes")
+
+    def test_every_fixture_reproduces_its_recorded_golden_decisions(self):
+        for p in sorted(FIX.glob("*.jsonl")):
+            header, _, res, _, _, _ = self.run_fixture(p.stem)
+            self.assertEqual("".join("A" if d == "allow" else "D" for _, d in res), header["golden"], p.stem)
 
     def test_replay_is_deterministic(self):
         a = self.run_fixture("ransomware_overwrite_rename")[2]; b = self.run_fixture("ransomware_overwrite_rename")[2]
@@ -50,7 +60,8 @@ class ReplayTests(unittest.TestCase):
 
     def test_every_fixture_in_the_folder_is_covered_and_valid(self):
         names = sorted(p.stem for p in FIX.glob("*.jsonl"))
-        self.assertEqual(names, ["benign_compressor", "benign_office_session", "ransomware_overwrite_rename", "tripwire_first_touch"])
+        self.assertEqual(names, ["below_threshold", "benign_compressor", "benign_office_session", "mixed_processes", "ransomware_copy_delete", "ransomware_entropy_jump",
+                                 "ransomware_overwrite_rename", "slow_burn", "tripwire_first_touch"])
         for n in names: sensor.load(FIX / f"{n}.jsonl")
 
     def test_unknown_op_or_version_is_refused(self):
