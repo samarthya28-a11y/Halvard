@@ -1,6 +1,6 @@
 # Halvard handoff (update after every major change)
 
-Version: 0.8.11 (see CHANGELOG.md). Branch: main. Python 3.11+, stdlib only.
+Version: 0.8.12 (see CHANGELOG.md). Branch: main. Python 3.11+, stdlib only.
 
 ## State
 - Reference build, Phases 1-8. Tests: `python -W ignore -m unittest discover -s tests` -> 515 OK, 3 skipped on Windows.
@@ -13,7 +13,7 @@ Version: 0.8.11 (see CHANGELOG.md). Branch: main. Python 3.11+, stdlib only.
 - Next for a real light client: native Windows sensor (ReadDirectoryChangesW + process events), run as a service, MSI/winget installer, code signing, onedir build to avoid the ~1 s startup extraction.
 
 ## Windows client
-- Plan and sensor design in docs/25-windows-client-plan.md (awaiting owner decisions: Rust vs C++, Stage A first, signing owner). Decisions taken: Rust service, Stage A first. M0 DONE (halvard/sensor.py, tests/fixtures/sensor, tests/test_sensor_conformance.py). M1 partly DONE: native/halvard-svc (Rust, cargo at ~/.cargo/bin; add to PATH). M1b DONE and verified live for the write path (owner ran tools\etw_smoke.ps1 elevated: PASS). Still to verify live: delete/rename (events 26/27 property names). Service wrapper DONE (v0.8.8); VERIFIED LIVE, ALL PASS (16:01). Previously: run tools\service_smoke.ps1 from an Administrator PowerShell and send the output. Next: MSI installer + signing, tripwire placement command, M2 (port detector/journal). Then M2 port detector/journal. Switch to MSVC toolchain before production.
+- Plan and sensor design in docs/25-windows-client-plan.md (awaiting owner decisions: Rust vs C++, Stage A first, signing owner). Decisions taken: Rust service, Stage A first. M0 DONE (halvard/sensor.py, tests/fixtures/sensor, tests/test_sensor_conformance.py). M1 partly DONE: native/halvard-svc (Rust, cargo at ~/.cargo/bin; add to PATH). M1b DONE and verified live for the write path (owner ran tools\etw_smoke.ps1 elevated: PASS). Still to verify live: delete/rename (events 26/27 property names). Service wrapper DONE (v0.8.8); VERIFIED LIVE, ALL PASS (16:01). Previously: run tools\service_smoke.ps1 from an Administrator PowerShell and send the output. Tripwire placement DONE (v0.8.12). Next: installer (WiX MSI needs a download: ask first) + signing, then M2 (port detector/journal). Typical flow: halvard-svc place --dir <Documents> ; service install --tripwire <printed paths>. Then M2 port detector/journal. Switch to MSVC toolchain before production.
 
 ## Open / pending
 - docs/07 and docs/11 were overwritten by a Windows acceptance run; revert with `git checkout -- docs/07-phase1-evidence.md docs/11-phase3-evidence.md` (user approval pending).

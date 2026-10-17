@@ -3,6 +3,7 @@
 pub mod brain;
 pub mod guard;
 pub mod logsink;
+pub mod place;
 pub mod replay;
 #[cfg(windows)]
 pub mod etw;

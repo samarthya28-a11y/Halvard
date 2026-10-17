@@ -2,6 +2,12 @@
 
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
+## 0.8.12 - 2026-10-17
+- Windows client: tripwire placement (`native/halvard-svc/src/place.rs`). `place --dir <folder> [--name f.xlsx]... [--manifest m.json]` creates decoys; `tripwires list|remove [manifest]`. Prints the `service install --tripwire ...` line to use next. No administrator needed.
+- Rules enforced and tested: absolute local folder only (never a drive root, network or `\?\` path, Windows, Program Files, ProgramData, Recycle Bin, Recovery, Boot); no `.`/`..`; refuses a folder reached through a junction or symlink (tested with a real junction); NEVER replaces an existing file (atomic create_new, no race); only safe names and document types; decoys are bland (no "halvard", "honeypot", "tripwire", "decoy" inside), deterministic, sort first (`!000-...`); `remove` deletes a file only if its SHA-256 still matches what was placed.
+- 28 Rust tests pass (8 new). Two deliberate weakenings (allow overwrite; skip the junction check) were each caught by a named test, then reverted.
+- New dependency: `sha2` 0.10 (pure Rust). Release exe 0.47 MB.
+
 ## 0.8.11 - 2026-10-17
 - Windows service VERIFIED LIVE end to end (owner, Administrator PowerShell, 16:01, `tools/service_smoke.ps1`): RESULT ALL PASS. Install (auto-start delayed, LocalSystem), restart-on-failure actions, binary in Program Files, Running, attacker frozen and logged, service restarted itself after being killed, `stop` clean (the 0.8.10 fix works), uninstall removes the service, no firewall or other system settings changed.
 - Not yet verified live: delete/rename of a tripwire (ETW events 26/27), behaviour after reboot (auto-start), behaviour under normal load, coexistence with other security products.

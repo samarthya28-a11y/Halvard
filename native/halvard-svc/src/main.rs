@@ -13,6 +13,74 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("--version") => println!("halvard-svc {}", halvard_svc::VERSION),
+        Some("place") if args.len() >= 3 => {
+            use halvard_svc::place as p;
+            let (mut dir, mut names, mut manifest) = (None, Vec::new(), p::default_manifest());
+            let mut it = args[1..].iter();
+            while let Some(a) = it.next() {
+                match a.as_str() {
+                    "--dir" => dir = it.next().cloned(),
+                    "--name" => names.extend(it.next().cloned()),
+                    "--manifest" => manifest = it.next().map(std::path::PathBuf::from).unwrap_or(manifest),
+                    o => {
+                        eprintln!("error: unknown option {o}");
+                        std::process::exit(2)
+                    }
+                }
+            }
+            let Some(dir) = dir else {
+                eprintln!("error: --dir <folder> is required");
+                std::process::exit(2)
+            };
+            if names.is_empty() {
+                names = p::DEFAULT_NAMES.iter().map(|s| s.to_string()).collect();
+            }
+            match p::place(&dir, &names, &manifest) {
+                Ok(r) => {
+                    let mut created = Vec::new();
+                    for x in r {
+                        match x {
+                            p::Placed::Created(path) => {
+                                println!("created  {}", path.display());
+                                created.push(path.display().to_string());
+                            }
+                            p::Placed::Skipped { path, why } => println!("skipped  {}  ({why})", path.display()),
+                        }
+                    }
+                    println!("manifest {}", manifest.display());
+                    if !created.is_empty() {
+                        let t: Vec<String> = created.iter().map(|c| format!("--tripwire \"{c}\"")).collect();
+                        println!("next: halvard-svc service install {}", t.join(" "));
+                    }
+                }
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    std::process::exit(1)
+                }
+            }
+        }
+        Some("tripwires") if args.len() >= 2 => {
+            use halvard_svc::place as p;
+            let manifest = args.get(2).map(std::path::PathBuf::from).unwrap_or_else(p::default_manifest);
+            match args[1].as_str() {
+                "list" => {
+                    for (path, st) in p::status(&manifest) {
+                        println!("{:8} {path}", format!("{st:?}").to_lowercase());
+                    }
+                }
+                "remove" => match p::remove(&manifest) {
+                    Ok((r, l)) => {
+                        r.iter().for_each(|x| println!("removed  {x}"));
+                        l.iter().for_each(|x| println!("kept     {x}"));
+                    }
+                    Err(e) => {
+                        eprintln!("error: {e}");
+                        std::process::exit(1)
+                    }
+                },
+                _ => eprintln!("use: tripwires list|remove [manifest]"),
+            }
+        }
         Some("replay") if args.len() == 2 => {
             let fx = match replay::load(Path::new(&args[1])) {
                 Ok(f) => f,
