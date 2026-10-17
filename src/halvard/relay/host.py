@@ -24,7 +24,8 @@ class SimHost:
 
     # processes
     def spawn(self, pid, name, user="user1", exe_sha256=None, cmdline=None, ppid=None):
-        self.procs[pid] = {"name": name, "user": user, "state": "running", "exe_sha256": exe_sha256, "cmdline": cmdline, "ppid": ppid}
+        self._starts = getattr(self, "_starts", 0) + 1
+        self.procs[pid] = {"name": name, "user": user, "state": "running", "exe_sha256": exe_sha256, "cmdline": cmdline, "ppid": ppid, "started": self._starts}
 
     def suspend(self, pid):
         if pid in self.procs: self.procs[pid]["state"] = "suspended"

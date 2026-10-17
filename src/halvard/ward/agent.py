@@ -30,6 +30,17 @@ SYSTEM = Principal("halvard:auto", "system")
 URGENT_REMOTE = {"isolate_host", "stop_process", "quarantine_file", "legal_hold"}      # containment is never delayed by a maintenance window; updates and rollbacks are
 
 
+class BlockedPids(dict):
+    """pid -> start time. `add` keeps the call sites that freeze a process; a later process that reused the pid does not match."""
+
+    def __init__(self, agent):
+        super().__init__(); self._agent = agent
+
+    def add(self, pid):
+        proc = self._agent.host.proc(pid) or {}
+        self[pid] = proc.get("started")
+
+
 class Blocked(PermissionError):
     pass
 
@@ -55,7 +66,7 @@ class WardAgent:
         self.verdicts = VerdictEngine(bundle.known_bad_sha256, reputation=reputation)
         self.profile = PROFILES[bundle.platform]
         self.journal.key = self.profile.path_key
-        self.blocked, self.incidents, self.recent_highent = set(), [], {}
+        self.blocked, self.incidents, self.recent_highent = BlockedPids(self), [], {}
         self.runtime, self.detections, self.outbox = Runtime(clock), [], deque(maxlen=20000)
         self.matcher = DeviceMatcher(clock, bundle.learned_exceptions)
         self._proc_cache = {}
@@ -83,6 +94,7 @@ class WardAgent:
         pol = CustomerPolicy(overrides=self.bundle.overrides, accepted_patterns=set(self.bundle.accepted_patterns))
         self.engine = ActionEngine(Authority(pol), self.spool, self.clock, self.host, self.journal,
                                    self.root / "relay", asset_class_of=lambda t: self.asset_class, device_id=self.device_id)
+        self.engine.on_containment_released = self.release_containment
 
     # ---- policy ----
     def apply_bundle(self, raw: dict, key: bytes):
@@ -103,7 +115,7 @@ class WardAgent:
         return True
 
     # ---- tripwires (Hearth): files nobody has a reason to touch ----
-    FORBIDDEN_ROOTS = ("/etc", "/usr", "/bin", "/sbin", "/boot", "/sys", "/proc", "/dev", "/lib", "/windows", "/program files", "/programdata")
+    FORBIDDEN_ROOTS = ("/etc", "/usr", "/bin", "/sbin", "/boot", "/sys", "/proc", "/dev", "/lib", "/var", "/opt", "/root", "/run", "/windows", "/program files", "/programdata")
 
     @staticmethod
     def _twkey(path): return os.path.normcase(os.path.realpath(str(path))).replace("\\", "/")      # a link to a tripwire is the tripwire
@@ -370,7 +382,7 @@ class WardAgent:
             inc["note"] = "Audit-only mode: nothing was blocked. Switch the rule to enforce to stop this automatically."
             return inc
         # Prevention: freeze the process's I/O immediately. Non-destructive, always available, reversible.
-        self.host.suspend(v.pid); self.blocked.add(v.pid)
+        self.host.suspend(v.pid); self.blocked.add(v.pid)      # records pid and the process start time
         self.spool.append("ward.io_blocked", "system", "system", self.device_id, {"pid": v.pid},
                           controls=("WARD.BEHAVIORAL_STOP",))
         run = lambda: self._respond(v, inc)
@@ -400,6 +412,21 @@ class WardAgent:
     def heartbeat(self):
         self.sensors["heartbeat"] = self.clock.now(); self.engine.offer_due()
 
+    def block_pid(self, pid):
+        self.blocked.add(pid)
+
+    def is_blocked(self, pid):
+        if pid not in self.blocked: return False
+        recorded = self.blocked[pid]
+        started = (self.host.proc(pid) or {}).get("started")
+        if recorded is not None and started is not None and started != recorded:
+            return False
+        return True
+
+    def release_containment(self):
+        """Network isolation ends and frozen pids are forgotten. A process that is still the same start time can be stopped again; a reused pid is not."""
+        self.host.release(); self.blocked.clear()
+
 
 class ProtectedFS:
     """The contract the OS file hook satisfies: call the agent before and after each operation."""
@@ -411,7 +438,7 @@ class ProtectedFS:
         self.a = agent
 
     def _gate(self, pid):
-        if pid in self.a.blocked:
+        if self.a.is_blocked(pid):
             raise Blocked("Halvard stopped this program from changing files because it looked like bulk encryption.")
 
     @staticmethod

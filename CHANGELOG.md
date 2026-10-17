@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.2 - 2026-10-17
+Slice 2 — Decoys, freeze, and unread data (features 7, 10, 11, 12). **Built** in the Python reference.
+- A customer cannot place a decoy in `/var`, `/opt`, `/root`, or `/run` (same refusal as `/etc`). An unwritable folder is skipped and logged; later decoys in the same policy still run. Exclusive create and hash-checked removal were already in 0.9.2.
+- Linux suspend refuses pids 0, 1, 2, the agent, its parent, and a configurable denylist. A frozen pid is stored with its start time and is cleared when containment is released. A reused pid with a new start time is not frozen.
+- A card grouped by tab, comma, slash, underscore, colon, middle dot, or ideographic space is a card. Digits in other scripts that are the same number are a card. A lowercase IBAN is an IBAN. Samples live in `tests/fixtures/dlp/`.
+- A PDF, a legacy Office file, an encrypted archive, an OOXML part that is not text, and unknown bytes are regulated when inspection is on. No justification copies them to an unapproved drive or an external address.
+- Still a reference model. No kernel driver in this commit.
+
 ## 0.10.1 - 2026-10-17
 Slice 1 — Recovery contract (features 6 and 17). **Built** in the Python reference.
 - A customer can read the incident page and see every file the rollback considered, each as restored, left because it changed later, or not restorable, with the reason. The list comes from the journal report.

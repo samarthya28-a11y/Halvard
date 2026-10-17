@@ -45,12 +45,18 @@ class LinuxHost(SimHost):
     """Process control and triage from /proc. Isolation is recorded, not applied: rules are rendered in relay.isolation."""
     PROTECTED = {0, 1, 2}      # 2 is kthreadd: signalling it (or its children, the kernel threads) can hang the machine
 
+    def __init__(self, name, root, mgmt_endpoints=("mgmt.halvard.example",), denylist=()):
+        super().__init__(name, root, mgmt_endpoints)
+        self.denylist = {int(p) for p in denylist}
+
     def proc(self, pid):
         try:
             stat_txt = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
             comm = Path(f"/proc/{pid}/comm").read_text(encoding="utf-8").strip()
-            ppid = int(stat_txt.rsplit(")", 1)[1].split()[1])
-            state = stat_txt.rsplit(")", 1)[1].split()[0]
+            rest = stat_txt.rsplit(")", 1)[1].split()
+            ppid = int(rest[1])
+            state = rest[0]
+            started = int(rest[19]) if len(rest) > 19 else None
             uid = next(l.split()[1] for l in Path(f"/proc/{pid}/status").read_text(encoding="utf-8").splitlines() if l.startswith("Uid:"))
             try: cmd = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace").strip()
             except OSError: cmd = None
@@ -60,7 +66,7 @@ class LinuxHost(SimHost):
         except (OSError, ValueError, StopIteration):
             return self.procs.get(pid)
         return {"name": comm, "user": uid, "state": {"T": "suspended", "Z": "terminated", "X": "terminated"}.get(state, "running"),
-                "exe_sha256": None, "cmdline": cmd, "ppid": ppid, "exe": exe}
+                "exe_sha256": None, "cmdline": cmd, "ppid": ppid, "exe": exe, "started": started}
 
     @staticmethod
     def _is_kernel_thread(pid):
@@ -72,7 +78,7 @@ class LinuxHost(SimHost):
             return False
 
     def _signal(self, pid, sig):
-        if pid in self.PROTECTED or pid == os.getpid() or pid == os.getppid() or self._is_kernel_thread(pid):
+        if pid in self.PROTECTED or pid in self.denylist or pid == os.getpid() or pid == os.getppid() or self._is_kernel_thread(pid):
             raise PermissionError(f"refusing to signal pid {pid}")
         try: os.kill(pid, sig)
         except ProcessLookupError: pass
@@ -217,7 +223,7 @@ class FanotifySensor:
     # ---------------- permission events ----------------
     def _on_open(self, pid, fd, path):
         a = self.agent; self.stats["open_perm"] += 1
-        if pid in a.blocked: return FAN_DENY
+        if a.is_blocked(pid): return FAN_DENY
         st = os.fstat(fd)
         if not stat.S_ISREG(st.st_mode): return FAN_ALLOW
         if a._trusted(pid) or self._excluded(path): return FAN_ALLOW
@@ -244,7 +250,7 @@ class FanotifySensor:
 
     def _on_exec(self, pid, fd, path):
         a = self.agent; self.stats["exec_perm"] += 1
-        if pid in a.blocked: return FAN_DENY
+        if a.is_blocked(pid): return FAN_DENY
         st = os.fstat(fd)
         data = os.pread(fd, min(st.st_size, 8 << 20), 0)
         v = a.verdicts.evaluate(data, os.path.basename(path), a.online)
