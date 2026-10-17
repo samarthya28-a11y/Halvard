@@ -4,6 +4,7 @@ use std::path::Path;
 fn usage() {
     println!("halvard-svc {}\nUsage:\n  halvard-svc --version\n  halvard-svc replay <fixture.jsonl>\n  halvard-svc watch <folder> <tripwire-file-name>...   (alert only, no admin needed)
   halvard-svc guard <tripwire-full-path>... [--trust name.exe] [--debug]   (ETW, needs Administrator; freezes the offender; --debug dumps delete/rename event contents)
+  halvard-svc status-report [--wait]   (what is running and what it caught, in plain words)
   halvard-svc stop   (stop a stale ETW session)
   halvard-svc service install --tripwire <full path>... [--trust name.exe]   (Administrator)
   halvard-svc service uninstall|start|stop   (Administrator)   |   service status (no admin)", halvard_svc::VERSION);
@@ -142,6 +143,16 @@ fn main() {
                     eprintln!("error: {e}");
                     std::process::exit(1)
                 }
+            }
+        }
+        #[cfg(windows)]
+        Some("status-report") => {
+            println!("
+{}", halvard_svc::service::status_page());
+            if args.iter().any(|a| a == "--wait") {
+                println!("Press Enter to close this window.");
+                let mut s = String::new();
+                let _ = std::io::stdin().read_line(&mut s);
             }
         }
         #[cfg(windows)]

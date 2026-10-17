@@ -16,6 +16,11 @@
 
     <!-- the wizard: license + Install, progress, finish. Silent installs (/qn) skip it entirely. -->
     <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="art\banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="art\dialog.bmp" />
+    <Icon Id="HalvardIcon" SourceFile="art\halvard.ico" />
+    <Property Id="ARPPRODUCTICON" Value="HalvardIcon" />
+    <Property Id="ARPCOMMENTS" Value="Halvard Guard: freezes programs that tamper with tripwire files or encrypt documents in bulk." />
     <ui:WixUI Id="WixUI_Minimal" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
@@ -33,9 +38,30 @@
       </Directory>
     </StandardDirectory>
 
+    <!-- Start Menu: a status page that says, in plain words, whether protection is running and what it caught -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="HalvardMenu" Name="Halvard Guard">
+        <Component Id="MenuShortcut" Guid="*" Bitness="always64">
+          <Shortcut Id="StatusShortcut" Name="Halvard Guard status" Description="Is Halvard Guard running, and what has it caught?"
+                    Target="[#HalvardSvcExe]" Arguments="status-report --wait" WorkingDirectory="INSTALLFOLDER" Icon="HalvardIcon" />
+          <RemoveFolder Id="RemoveHalvardMenu" On="uninstall" />
+          <RegistryValue Root="HKLM" Key="Software\Halvard\Guard" Name="StartMenu" Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
     <Feature Id="Main" Title="Halvard Guard" Level="1">
       <ComponentRef Id="GuardService" />
+      <ComponentRef Id="MenuShortcut" />
     </Feature>
+
+    <!-- finish screen: offer to open the status page (ticked by default) -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Show Halvard Guard status now" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <CustomAction Id="LaunchStatus" FileRef="HalvardSvcExe" ExeCommand="status-report --wait" Execute="immediate" Impersonate="yes" Return="asyncNoWait" />
+    <UI>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchStatus" Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
+    </UI>
 
     <!-- places decoys and writes the service config (as SYSTEM), before the service starts -->
     <CustomAction Id="ConfigureGuard" FileRef="HalvardSvcExe" ExeCommand='configure --dirs "[TRIPWIREDIRS]"'

@@ -227,6 +227,54 @@ fn wait_for(svc: &windows_service::service::Service, want: ServiceState, secs: u
     Err(format!("timed out waiting for the service to reach {want:?}"))
 }
 
+/// The page the Start Menu shortcut and the installer's finish screen open: plain words about what is running and what it caught.
+pub fn status_page() -> String {
+    use crate::place::{status as tw_status, State};
+    let mut o = String::new();
+    o += &format!("Halvard Guard {}
+{}
+
+", crate::VERSION, "=".repeat(40));
+    match status() {
+        Ok(s) if s == "Running" => o += "Protection:  RUNNING. A program that changes a tripwire file, or starts overwriting
+             your documents in bulk, is frozen on the spot.
+",
+        Ok(s) => o += &format!("Protection:  NOT RUNNING (service state: {s}). Start it from an Administrator PowerShell:
+             halvard-svc service start
+"),
+        Err(e) => o += &format!("Protection:  service not found ({e}).
+"),
+    }
+    let tws = tw_status(&manifest_path());
+    let (ok, changed, missing) = (tws.iter().filter(|(_, s)| *s == State::Ok).count(), tws.iter().filter(|(_, s)| *s == State::Changed).count(), tws.iter().filter(|(_, s)| *s == State::Missing).count());
+    o += &format!("Tripwires:   {} placed: {ok} intact, {changed} changed, {missing} missing
+", tws.len());
+    if changed + missing > 0 {
+        o += "             A changed or missing tripwire means something touched it. See the alerts below.
+";
+    }
+    let alerts: Vec<String> = std::fs::read_to_string(log_path()).unwrap_or_default().lines().filter(|l| l.contains("\"alert\"")).map(String::from).collect();
+    o += &format!("
+Alerts:      {} recorded", alerts.len());
+    if alerts.is_empty() {
+        o += ". Nothing has been caught.
+";
+    } else {
+        o += ". The last five:
+";
+        for a in alerts.iter().rev().take(5).rev() {
+            let v: serde_json::Value = serde_json::from_str(a).unwrap_or_default();
+            o += &format!("  - {} stopped: {} ({}), {}
+", v["process"].as_str().unwrap_or("a program"), v["path"].as_str().unwrap_or("?"), v["op"].as_str().unwrap_or("?"), if v["frozen"] == true { "frozen" } else { "could not be frozen" });
+        }
+    }
+    o += &format!("
+Log:         {}
+Config:      {}
+", log_path().display(), config_path().display());
+    o
+}
+
 /// Applied by the MSI after it creates the service: delayed auto-start, so the guard never slows the boot.
 pub fn tune() -> Result<String, String> {
     let svc = manager(ServiceManagerAccess::CONNECT)?.open_service(NAME, ServiceAccess::CHANGE_CONFIG).map_err(explain)?;

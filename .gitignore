@@ -8,3 +8,7 @@ __pycache__/
 dist/
 build/
 /halvard/
+native/installer/art/mark.html
+native/installer/art/mark512.png
+native/installer/art/*-preview.png
+native/installer/art/edge.err.txt
