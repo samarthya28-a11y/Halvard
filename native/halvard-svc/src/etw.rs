@@ -133,10 +133,10 @@ unsafe extern "system" fn on_record(rec: *mut EVENT_RECORD) {
     };
     if let Some(f) = st.guard.on_event(ev) {
         let frozen = suspend::suspend(f.pid);
-        println!(
+        crate::logsink::emit(&format!(
             "{{\"alert\":\"tripwire\",\"pid\":{},\"process\":{:?},\"path\":{:?},\"op\":\"{:?}\",\"frozen\":{},\"error\":{:?},\"t_ms\":{}}}",
             f.pid, f.process, f.path, f.op, frozen.is_ok(), frozen.err().unwrap_or_default(), st.t0.elapsed().as_millis()
-        );
+        ));
     }
 }
 

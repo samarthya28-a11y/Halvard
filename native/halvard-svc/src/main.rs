@@ -4,7 +4,9 @@ use std::path::Path;
 fn usage() {
     println!("halvard-svc {}\nUsage:\n  halvard-svc --version\n  halvard-svc replay <fixture.jsonl>\n  halvard-svc watch <folder> <tripwire-file-name>...   (alert only, no admin needed)
   halvard-svc guard <tripwire-full-path>... [--trust name.exe]   (ETW, needs Administrator; freezes the offender)
-  halvard-svc stop   (stop a stale ETW session)", halvard_svc::VERSION);
+  halvard-svc stop   (stop a stale ETW session)
+  halvard-svc service install --tripwire <full path>... [--trust name.exe]   (Administrator)
+  halvard-svc service uninstall|start|stop   (Administrator)   |   service status (no admin)", halvard_svc::VERSION);
 }
 
 fn main() {
@@ -44,6 +46,32 @@ fn main() {
         }
         #[cfg(windows)]
         Some("stop") => halvard_svc::etw::stop_session(),
+        #[cfg(windows)]
+        Some("service-run") => {
+            if let Err(e) = halvard_svc::service::run_as_service() {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        }
+        #[cfg(windows)]
+        Some("service") if args.len() >= 2 => {
+            use halvard_svc::service as s;
+            let r = match args[1].as_str() {
+                "install" => s::parse_install_args(&args[2..]).and_then(|c| s::install(&c)),
+                "uninstall" => s::uninstall(),
+                "start" => s::start(),
+                "stop" => s::stop(),
+                "status" => s::status(),
+                _ => Err("use: service install|uninstall|start|stop|status".into()),
+            };
+            match r {
+                Ok(m) => println!("{m}"),
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
         #[cfg(windows)]
         Some("watch") if args.len() >= 3 => {
             let dir = args[1].clone();

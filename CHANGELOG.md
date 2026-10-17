@@ -2,6 +2,13 @@
 
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
+## 0.8.8 - 2026-10-17
+- Windows client: service wrapper (`native/halvard-svc`, `service.rs`, `logsink.rs`). Commands: `service install --tripwire <full path>... [--trust name.exe]`, `service uninstall|start|stop|status`; `service-run` is the entry point the service manager uses.
+- Install: auto-start (delayed), LocalSystem, restart after failure (5 s, three times, counter resets after a day, also on non-crash failures), description set. Binary is COPIED to `C:\Program Files\Halvard` (admin-writable only; a SYSTEM service must never run from a user-writable folder). Config `C:\ProgramData\Halvard\service.json`, folder ACL set to admins/SYSTEM write, users read. Alerts go to `guard.log` (5 MB cap, one rotated file).
+- Elevation: install, uninstall, start, stop need an Administrator PowerShell; `status` and everything else does not. Unelevated install is refused with a clear message before anything is written (checked).
+- 20 Rust tests pass (4 new). Release exe 0.44 MB. Used `windows-service` 0.7 because 0.8 needs `dlltool` on the GNU toolchain.
+- Live test script `tools/service_smoke.ps1` (Administrator): install, start, freeze an attacker, kill the service and check it restarts, stop, uninstall. NOT yet run.
+
 ## 0.8.7 - 2026-10-17
 - Windows client M1b VERIFIED LIVE (owner ran `tools/etw_smoke.ps1` from an Administrator PowerShell, 2026-10-17): ETW attributed the write to the right process (powershell.exe, pid shown), `Open`+`Write` through the FileObject map matched the decoy, the process was frozen (`"frozen":true`, tick file stopped growing), PASS.
 - Still unverified live: delete/rename events (ids 26/27 property names), ordinary-load behaviour, long soak, other EDR products running alongside.
