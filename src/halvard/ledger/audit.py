@@ -23,6 +23,32 @@ MAX_STR = 1024
 EMAIL_RE = __import__("re").compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 
 
+def _split_pii(data):
+    """Move personal keys into the private half. The match ignores case and walks nested dicts and lists of dicts."""
+    pub, priv = {}, {}
+    if not isinstance(data, dict):
+        return data, {}
+    for k, v in data.items():
+        if str(k).lower() in PII_KEYS:
+            priv[k] = v
+        elif isinstance(v, dict):
+            sp, sv = _split_pii(v)
+            pub[k] = sp
+            if sv: priv[k] = sv
+        elif isinstance(v, list):
+            pubs, privs, any_priv = [], [], False
+            for item in v:
+                if isinstance(item, dict):
+                    sp, sv = _split_pii(item); pubs.append(sp); privs.append(sv); any_priv = any_priv or bool(sv)
+                else:
+                    pubs.append(item); privs.append(None)
+            pub[k] = pubs
+            if any_priv: priv[k] = privs
+        else:
+            pub[k] = v
+    return pub, priv
+
+
 def scrub(o):
     """Defence in depth: an email address never survives in a public field, whatever a handler wrote into a summary or scope."""
     if isinstance(o, str): return EMAIL_RE.sub("[address]", o)
@@ -71,41 +97,52 @@ def _entry_hash(prev, head, pub_digest, priv_digest):
 class AuditLog:
     GENESIS = "0" * 64
 
-    def __init__(self, path, tenant: str, key: bytes, clock=None):
+    def __init__(self, path, tenant: str, key: bytes, clock=None, signer=None, verifier=None):
         self.path = Path(path)
         self.anchor = self.path.with_suffix(".head")
         self.tenant, self._key = tenant, key
+        self.signer, self.verifier = signer, verifier
         self.clock = clock
         # off-box witness: called with (seq, hash) after every append. Where it sends them (control plane, a second machine, write-once storage) is what makes
         # "delete the log AND its local anchor" detectable; the local anchor alone cannot, because both files sit in the same directory.
         self.witness, self.witness_failures = None, 0
+        self.pinned, self._holders = False, set()
         self._lock = threading.Lock()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.touch(exist_ok=True)
         self._seq, self._head = self._load_tail()
+        self._gap = None
+        witnessed = self._read_witness()
+        if witnessed and witnessed[0] > self._seq:
+            self._gap = f"log ends at seq {self._seq} but the witness file holds seq {witnessed[0]}: the log was removed"
+        elif not self.anchor.exists() and self._seq == 0 and not witnessed:
+            self._write_anchor()
 
     # ---- write path (the only mutation is append) ----
     def append(self, kind, actor, actor_role, subject, data=None, controls=(), controls_fired=()):
         data = dict(data or {})
         _check(data)
         with self._lock:
-            pub = scrub({k: v for k, v in data.items() if k not in PII_KEYS})
-            priv = {k: v for k, v in data.items() if k in PII_KEYS}
+            pub_raw, priv = _split_pii(data)
+            pub = scrub(pub_raw)
             priv["_actor"] = actor
             priv["_nonce"] = secrets.token_hex(8)
             seq = self._seq + 1
             ts = self.clock.now() if self.clock else __import__("time").time()
             head = {"seq": seq, "ts": round(ts, 3), "tenant": self.tenant, "kind": kind,
-                    "actor_role": actor_role, "subject": subject, "controls": sorted(controls)}
+                    "actor_role": actor_role, "subject": scrub(subject), "controls": sorted(controls)}
             pd, vd = _h(_canon(pub)), _h(_canon(priv))
             hh = _entry_hash(self._head, head, pd, vd)
-            rec = {**head, "public": pub, "private": priv, "prev": self._head, "hash": hh,
-                   "seal": hmac.new(self._key, hh.encode(), "sha256").hexdigest()}
+            if getattr(self, "signer", None) is not None:
+                seal = self.signer.sign_bytes(hh.encode())
+            else:
+                seal = hmac.new(self._key, hh.encode(), "sha256").hexdigest()
+            rec = {**head, "public": pub, "private": priv, "prev": self._head, "hash": hh, "seal": seal}
             with open(self.path, "ab") as f:
                 f.write(_canon(rec) + b"\n")
                 f.flush(); os.fsync(f.fileno())
             self._seq, self._head = seq, hh
-            self._write_anchor()
+            self._write_anchor(); self._write_witness()
             if self.witness:
                 try: self.witness(seq, hh)
                 except Exception: self.witness_failures += 1      # a witness that is down must not stop the log, but the failure is counted and visible
@@ -114,6 +151,36 @@ class AuditLog:
     def seal_bytes(self, data: bytes) -> str:
         """HMAC with the ledger key, so other evidence (e.g. a forensic manifest) is sealed by the same authority."""
         return hmac.new(self._key, data, "sha256").hexdigest()
+
+    def hold(self, approver):
+        """A second distinct person pins the spool and its anchor. One person does not."""
+        if approver not in self._holders:
+            self._holders.add(approver)
+        self.pinned = len(self._holders) >= 2
+        if self.pinned and not self.anchor.exists():
+            self._write_anchor()
+        return self.pinned
+
+    def _witness_path(self):
+        return Path(str(self.path) + ".witness")
+
+    def _read_witness(self):
+        path = self._witness_path()
+        if not path.exists(): return None
+        try:
+            body = json.loads(path.read_text(encoding="utf-8"))
+            seal = body.get("seal")
+            check = {k: body[k] for k in ("seq", "hash")}
+            if not seal or not hmac.compare_digest(hmac.new(self._key, _canon(check), "sha256").hexdigest(), seal):
+                return None
+            return body["seq"], body["hash"]
+        except (OSError, json.JSONDecodeError, KeyError):
+            return None
+
+    def _write_witness(self):
+        body = {"seq": self._seq, "hash": self._head}
+        body["seal"] = hmac.new(self._key, _canon(body), "sha256").hexdigest()
+        self._witness_path().write_bytes(_canon(body))
 
     def _write_anchor(self):
         body = {"seq": self._seq, "hash": self._head}
@@ -147,6 +214,7 @@ class AuditLog:
         """Return (ok, problems). Detects edits, deletions, reordering, bad seals and tail truncation.
         `witnessed` is the newest (seq, hash) the off-box witness holds: with it, removing the log together with its local anchor is detected too."""
         problems, prev, n, hashes = [], self.GENESIS, 0, {}
+        if self._gap: problems.append(self._gap)
         for rec in self.entries():
             n += 1; hashes[rec["seq"]] = rec["hash"]
             head = {k: rec[k] for k in ("seq", "ts", "tenant", "kind", "actor_role", "subject", "controls")}
@@ -157,7 +225,10 @@ class AuditLog:
                 problems.append(f"seq {rec['seq']}: expected {n}")
             if exp != rec["hash"]:
                 problems.append(f"seq {rec['seq']}: content changed after it was written")
-            if not hmac.compare_digest(hmac.new(self._key, rec["hash"].encode(), "sha256").hexdigest(), rec["seal"]):
+            if getattr(self, "verifier", None) is not None:
+                if not self.verifier.verify_bytes(rec["hash"].encode(), rec["seal"]):
+                    problems.append(f"seq {rec['seq']}: seal invalid")
+            elif not hmac.compare_digest(hmac.new(self._key, rec["hash"].encode(), "sha256").hexdigest(), rec["seal"]):
                 problems.append(f"seq {rec['seq']}: seal invalid")
             prev = rec["hash"]
         if witnessed is not None:
@@ -172,13 +243,18 @@ class AuditLog:
             elif a["seq"] != n or a["hash"] != prev:
                 problems.append(f"log ends at seq {n} but the sealed head says seq {a['seq']}: tail truncated or replaced")
         except FileNotFoundError:
-            if n:
-                problems.append("head anchor missing")
+            problems.append("head anchor missing")
+        witnessed_file = self._read_witness()
+        if witnessed_file and witnessed_file[0] > n:
+            msg = f"log ends at seq {n} but the witness file holds seq {witnessed_file[0]}: the log was removed"
+            if msg not in problems: problems.append(msg)
         return (not problems), problems
 
     # ---- sharing ----
     def export_for_control(self, control_id, since=0, until=float("inf"), salt=None):
         """Auditor export: entries tagged with the control, personal fields replaced by pseudonym tokens."""
+        if self.pinned:
+            raise PermissionError("legal hold: the spool and its anchor cannot be exported")
         salt = salt or secrets.token_bytes(16)
         tok = lambda v: hmac.new(salt, str(v).encode(), "sha256").hexdigest()[:10]
         out, last_visible = [], None

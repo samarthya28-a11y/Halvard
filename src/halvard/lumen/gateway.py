@@ -112,6 +112,13 @@ class AgentGateway:
         if self.audit: self.audit.append(kind, "halvard:lumen", "system", subject, data, controls=controls)
 
     # ---------------- sessions and untrusted context ----------------
+    def _residual(self, agent_id):
+        """Minutes still on the agent's taint, or on an approval window when it has none. Computed from the clock, not a fixed sentence."""
+        now = self.clock.now()
+        times = list(self._agent_taint.get(agent_id, {}).values())
+        left = (TAINT_CARRY - (now - max(times))) if times else ASK_TTL
+        return f"Residual: {max(0, int(left // 60))} minutes left."
+
     def _carried(self, agent_id):
         """Untrusted content this agent took in recently, in ANY of its sessions (it decays after TAINT_CARRY seconds or when a person clears it)."""
         now = self.clock.now(); return {src: 1 for src, t in self._agent_taint.get(agent_id, {}).items() if now - t <= TAINT_CARRY}
@@ -190,7 +197,7 @@ class AgentGateway:
         cls, known = self._classify(agent, tool, name, params.get("data"))
         d = self.evaluate(agent, session, tool, action, params, cls, known)
         if agent.source == "observed" and d.rule == "agent-undeclared-tool": d = Decision("block", "agent-unregistered", "This agent is not on the inventory. Nothing it asks for will run until a person registers it.", d.labels, known, False)
-        dig = digest_of(tool, action, params); out = {"decision": d.action, "rule": d.rule, "message": d.message, "labels": d.labels, "data_known": known, "step": session.step, "digest": dig, "rules": d.also}
+        dig = digest_of(tool, action, params); out = {"decision": d.action, "rule": d.rule, "message": (d.message + " " + self._residual(agent.id)).strip(), "labels": d.labels, "data_known": known, "step": session.step, "digest": dig, "rules": d.also}
         session.calls.append(self.clock.now())
         ac_ = self._agent_calls.setdefault(agent.id, []); ac_.append(self.clock.now()); del ac_[:-1000]
         if d.action == "allow": out["result"] = self._run(agent, session, tool, action, params, dig)
@@ -239,6 +246,9 @@ class AgentGateway:
         if self.clock.now() > v["exp"]:
             self.pending.pop(pid); return {"status": "expired", "message": "This request expired and was refused."}
         if agent.status == "suspended": return {"status": "blocked", "message": "The agent is suspended."}
+        if digest_of(v["tool"], v["action"], v["params"]) != v["digest"]:
+            self.pending.pop(pid, None)
+            return {"status": "refused", "message": "This approval was for the stored call only."}
         self.pending.pop(pid); session = self.sessions[v["session"]]
         r = self._run(agent, session, v["tool"], v["action"], v["params"], v["digest"])
         self._log("lumen.ask_approved", v["agent"], {"agent": v["agent"], "session": v["session"], "step": v["step"], "tool": v["tool"], "action": v["action"], "rule": v["rule"], "approver_role": approver.role, "approver": approver.id, "digest": v["digest"], "justification": note})

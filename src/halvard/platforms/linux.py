@@ -45,12 +45,18 @@ class LinuxHost(SimHost):
     """Process control and triage from /proc. Isolation is recorded, not applied: rules are rendered in relay.isolation."""
     PROTECTED = {0, 1, 2}      # 2 is kthreadd: signalling it (or its children, the kernel threads) can hang the machine
 
+    def __init__(self, name, root, mgmt_endpoints=("mgmt.halvard.example",), denylist=()):
+        super().__init__(name, root, mgmt_endpoints)
+        self.denylist = {int(p) for p in denylist}
+
     def proc(self, pid):
         try:
             stat_txt = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
             comm = Path(f"/proc/{pid}/comm").read_text(encoding="utf-8").strip()
-            ppid = int(stat_txt.rsplit(")", 1)[1].split()[1])
-            state = stat_txt.rsplit(")", 1)[1].split()[0]
+            rest = stat_txt.rsplit(")", 1)[1].split()
+            ppid = int(rest[1])
+            state = rest[0]
+            started = int(rest[19]) if len(rest) > 19 else None
             uid = next(l.split()[1] for l in Path(f"/proc/{pid}/status").read_text(encoding="utf-8").splitlines() if l.startswith("Uid:"))
             try: cmd = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace").strip()
             except OSError: cmd = None
@@ -60,7 +66,7 @@ class LinuxHost(SimHost):
         except (OSError, ValueError, StopIteration):
             return self.procs.get(pid)
         return {"name": comm, "user": uid, "state": {"T": "suspended", "Z": "terminated", "X": "terminated"}.get(state, "running"),
-                "exe_sha256": None, "cmdline": cmd, "ppid": ppid, "exe": exe}
+                "exe_sha256": None, "cmdline": cmd, "ppid": ppid, "exe": exe, "started": started}
 
     @staticmethod
     def _is_kernel_thread(pid):
@@ -72,7 +78,7 @@ class LinuxHost(SimHost):
             return False
 
     def _signal(self, pid, sig):
-        if pid in self.PROTECTED or pid == os.getpid() or pid == os.getppid() or self._is_kernel_thread(pid):
+        if pid in self.PROTECTED or pid in self.denylist or pid == os.getpid() or pid == os.getppid() or self._is_kernel_thread(pid):
             raise PermissionError(f"refusing to signal pid {pid}")
         try: os.kill(pid, sig)
         except ProcessLookupError: pass
@@ -190,14 +196,31 @@ class FanotifySensor:
                 if fd < 0: continue
                 try: self._perm_event(mask, fd, pid)
                 except Exception as e:
-                    self.stats["errors"] += 1; self.errors.append(repr(e))
-                    if mask & (FAN_OPEN_PERM | FAN_OPEN_EXEC_PERM): self._reply(fd, FAN_ALLOW)      # sensor faults fail open, visibly
+                    self._on_perm_error(mask, fd, e)      # sensor faults fail open, and the allow is recorded
                 finally:
                     try: os.close(fd)
                     except OSError: pass
 
     def _reply(self, fd, resp):
         os.write(self.pfd, struct.pack("<ii", fd, resp))
+
+    def _on_perm_error(self, mask, fd, exc):
+        """The hook allows the open when it throws, and that allow is a coverage row."""
+        self.stats["errors"] = self.stats.get("errors", 0) + 1
+        self.errors.append(repr(exc))
+        if mask & (FAN_OPEN_PERM | FAN_OPEN_EXEC_PERM):
+            self.agent.note_coverage("failed_open")
+            self._reply(fd, FAN_ALLOW)
+
+    def _drop_pending(self):
+        if not self.pending: return
+        dropped = self.pending.pop(next(iter(self.pending)))
+        if dropped and dropped[0]:
+            self.agent.journal.drop_pending(dropped[0])
+        stats = getattr(self, "stats", None)
+        if stats is not None:
+            stats["pending_dropped"] = stats.get("pending_dropped", 0) + 1
+        self.agent.note_coverage("pending_dropped")
 
     def _perm_event(self, mask, fd, pid):
         a = self.agent
@@ -217,7 +240,7 @@ class FanotifySensor:
     # ---------------- permission events ----------------
     def _on_open(self, pid, fd, path):
         a = self.agent; self.stats["open_perm"] += 1
-        if pid in a.blocked: return FAN_DENY
+        if a.is_blocked(pid): return FAN_DENY
         st = os.fstat(fd)
         if not stat.S_ISREG(st.st_mode): return FAN_ALLOW
         if a._trusted(pid) or self._excluded(path): return FAN_ALLOW
@@ -234,14 +257,14 @@ class FanotifySensor:
         seen = self.opened.setdefault(pid, {})
         head = head or seen.get(path)            # a rate-limited re-open reuses the head from the first open of this file
         if len(self.pending) > 50_000:
-            self.pending.pop(next(iter(self.pending))); self.stats["pending_dropped"] = self.stats.get("pending_dropped", 0) + 1      # an open whose close we may never match: counted so a gap is visible, not silent
+            self._drop_pending()      # the pre-image stays; rollback must not call this a clean restore
         self.pending[(pid, st.st_dev, st.st_ino)] = (rid, head, st.st_size == 0)     # keyed by file identity: it may be renamed while open
         if head and len(seen) < 5000: seen[path] = head
         return FAN_ALLOW
 
     def _on_exec(self, pid, fd, path):
         a = self.agent; self.stats["exec_perm"] += 1
-        if pid in a.blocked: return FAN_DENY
+        if a.is_blocked(pid): return FAN_DENY
         st = os.fstat(fd)
         data = os.pread(fd, min(st.st_size, 8 << 20), 0)
         v = a.verdicts.evaluate(data, os.path.basename(path), a.online)

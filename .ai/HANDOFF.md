@@ -1,6 +1,6 @@
 # Halvard handoff (update after every major change)
 
-Version 0.9.0 (see CHANGELOG.md for the full history). Branch main, local commits only, nothing pushed. Python 3.11+ stdlib only; Rust (GNU toolchain) for `native/`.
+Version 0.10.7 (see CHANGELOG.md). Python 3.11+ stdlib only; Rust (GNU toolchain) for `native/`. Slices 1–7 are in the Python reference. The Windows sensor and installer are specified and fixture-tested. They are not built. The Windows service is still the Stage A ETW prototype, not a minifilter. Customer signatures are reference RSA, not a KMS. Connector events use a reference HMAC, not a customer connector key. Program trust for identity rows is publisher plus image hash; a name-only row remains for processes that present no hash.
 
 ## Ground rules from the owner
 1. Update this file after every major change. 2. Version every change (`src/halvard/__init__.py` + `CHANGELOG.md`, git tag `vX.Y.Z`). 3. Keep advising on deployment, licensing, commercials, cloud vs on-prem (docs/24). 4. Keep researching competitors and recommend unique features.
@@ -25,7 +25,7 @@ Pending request to owner: run `etw_smoke.ps1` and `msi_smoke.ps1` elevated, read
 ## Known limits (state them, do not hide them)
 - Stage A (ETW) sees writes AFTER they happen (about 1 s late): a burst loses a few files before the freeze; no byte-exact rollback (journal needs the Stage B minifilter). A file never seen before gives no "signature destroyed" signal.
 - Detector is a port of the Python rules: 8 files in 30 s; 7 files or a slow burn is not stopped (tested, documented).
-- Trust is by process NAME (any program can call itself MsMpEng.exe): a Cursor-review item.
+- Identity rows (publisher + image hash) do not trust a renamed or same-named binary with a different hash. A name-only policy row still matches a process that presents no image hash.
 - Unsigned binaries/MSI (no code-signing certificate yet); GNU toolchain (switch to MSVC before production); no installer for macOS/Linux client.
 
 ## Next steps (recommended order)

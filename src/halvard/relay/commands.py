@@ -16,15 +16,21 @@ REMOTE_ACTIONS = {"isolate_host", "release_isolation", "stop_process", "quaranti
 def _canon(o): return json.dumps(o, sort_keys=True, separators=(",", ":")).encode()
 
 
-def sign(key: bytes, *, device, action, params, reason, case, approvals, rule, issuer, now, ttl=6 * 3600):
+def sign(key, *, device, action, params, reason, case, approvals, rule, issuer, now, ttl=6 * 3600):
     body = {"id": "cmd-" + secrets.token_hex(5), "device": device, "action": action, "params": params, "reason": reason, "case": case,
             "approvals": approvals, "rule": rule, "issuer": issuer, "issued": now, "expires": now + ttl, "nonce": secrets.token_hex(8)}
-    return {**body, "signature": hmac.new(key, _canon(body), "sha256").hexdigest()}
+    raw = _canon(body)
+    sig = key.sign_bytes(raw) if hasattr(key, "sign_bytes") else hmac.new(key, raw, "sha256").hexdigest()
+    return {**body, "signature": sig}
 
 
-def verify(cmd, key: bytes, device, now, seen_nonces: set, authority, asset_class):
+def verify(cmd, key, device, now, seen_nonces: set, authority, asset_class):
     body = {k: v for k, v in cmd.items() if k != "signature"}
-    if not hmac.compare_digest(hmac.new(key, _canon(body), "sha256").hexdigest(), cmd.get("signature", "")): return False, "signature invalid"
+    raw = _canon(body)
+    if hasattr(key, "verify_bytes"):
+        if getattr(key, "revoked", False): return False, "signing key revoked"
+        if not key.verify_bytes(raw, cmd.get("signature", "")): return False, "signature invalid"
+    elif not hmac.compare_digest(hmac.new(key, raw, "sha256").hexdigest(), cmd.get("signature", "")): return False, "signature invalid"
     if cmd["device"] != device: return False, "command is for another device"
     if now > cmd["expires"]: return False, "command expired before it could run"
     if cmd["nonce"] in seen_nonces: return False, "command already used"

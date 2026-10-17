@@ -1,0 +1,2 @@
+{"fixture": 1, "name": "short_name", "description": "An 8.3 short name is the long file, not a second file.", "processes": {"9": "editor.exe"}, "short_names": {"BUDGET~1.XLS": "docs/quarter-budget.xlsx"}, "seed_files": [{"path": "docs/quarter-budget.xlsx", "kind": "text", "size": 3000}], "offline": false, "expect": {"deny_pids": [], "all_allowed": true}, "golden": "A"}
+{"seq": 1, "t_ms": 0, "pid": 9, "op": "write", "path": "docs/BUDGET~1.XLS", "data": {"kind": "text", "size": 80, "seed": 2}}

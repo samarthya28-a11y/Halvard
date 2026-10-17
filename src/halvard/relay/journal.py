@@ -26,6 +26,22 @@ def fingerprint(path, read=True):
     return f"{st.st_size}:{st.st_mtime_ns}:{h.hexdigest()[:32]}"
 
 
+def _file_statements(rep):
+    """One line per path the rollback considered, so the incident page cannot hide a file behind a count."""
+    files = {}
+    for path, reason in rep.not_restorable:
+        files[path] = {"path": path, "status": "not_restorable", "reason": reason}
+    for path in rep.skipped_changed_after:
+        files.setdefault(path, {"path": path, "status": "left_changed_later", "reason": "left because the file changed after the incident"})
+    for path in rep.restored:
+        files.setdefault(path, {"path": path, "status": "restored", "reason": "restored from the journal pre-image"})
+    for path in rep.removed_created:
+        files.setdefault(path, {"path": path, "status": "restored", "reason": "removed because the incident created it"})
+    for path in rep.renamed_back:
+        files.setdefault(path, {"path": path, "status": "restored", "reason": "moved back to the name it had before the incident"})
+    return [files[k] for k in sorted(files)]
+
+
 def sha(path):
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -41,6 +57,7 @@ class RollbackReport:
     renamed_back: list = field(default_factory=list)
     skipped_changed_after: list = field(default_factory=list)
     not_restorable: list = field(default_factory=list)   # (path, reason)
+    files: list = field(default_factory=list)            # every path: {path, status, reason}; status is restored | left_changed_later | not_restorable
     snapshot_id: str | None = None
 
     @property
@@ -143,6 +160,13 @@ class Journal:
         return w
 
     @_locked
+    def drop_pending(self, rec_id):
+        """The sensor lost the close that would have called after(). The pre-image stays, and rollback must say so instead of looking complete."""
+        self.db.execute("UPDATE rec SET note=? WHERE id=? AND note IS NULL",
+                        ("pending close record was dropped before a write was observed, so the new bytes were not rolled back automatically", rec_id))
+        self.db.commit()
+
+    @_locked
     def mark_written(self, rec_id):
         """A sensor that sees open-for-anything before it knows intent upgrades the record when a write close arrives."""
         self.db.execute("UPDATE rec SET op='write' WHERE id=? AND op='open'", (rec_id,))
@@ -226,9 +250,11 @@ class Journal:
                     try: changed = sha(path) != pre
                     except OSError: changed = True
                     if changed:      # opened by the incident process, content differs, but no write was ever reported: say so instead of staying silent
-                        rep.not_restorable.append((path, "opened by the incident program and its content now differs from before, but no write was observed, so it was not restored automatically"))
+                        why = note or "opened by the incident program and its content now differs from before, but no write was observed, so it was not restored automatically"
+                        rep.not_restorable.append((path, why))
         rep.not_restorable = sorted(set(rep.not_restorable))
         rep.restored = sorted(set(rep.restored)); rep.removed_created = sorted(set(rep.removed_created))
+        rep.files = _file_statements(rep)
         return rep
 
     def _restore(self, digest, path):
@@ -243,6 +269,9 @@ class Journal:
     @_locked
     def compact(self, older_than_s, pinned_pids=()):
         """Drop records and unreferenced blobs past retention, except those for pinned incident pids."""
+        spool = getattr(self, "spool", None)
+        if spool is not None and getattr(spool, "pinned", False):
+            raise PermissionError("legal hold: the spool and its anchor cannot be compacted")
         cutoff = self.clock.now() - older_than_s
         qs = ",".join("?" * len(pinned_pids)) or "NULL"
         self.db.execute(f"DELETE FROM rec WHERE ts<? AND pid NOT IN ({qs})", (cutoff, *pinned_pids)); self.db.commit()

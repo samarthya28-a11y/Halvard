@@ -85,7 +85,8 @@ class ReferenceAWS:
         self.trail_enabled = True; self.log = []
 
     def _ev(self, kind, actor, ip=None, **extra):
-        e = {"ts": self.clock.now(), "source": "aws", "kind": kind, "actor": actor, "ip": ip, "account": self.account_id, **extra}; self.log.append(e); return e
+        from ..fabric.connector_auth import seal
+        e = {"ts": self.clock.now(), "source": "aws", "kind": kind, "actor": actor, "ip": ip, "account": self.account_id, **extra}; self.log.append(seal(e)); return e
 
     def events_since(self, cursor): return self.log[cursor:], len(self.log)
 

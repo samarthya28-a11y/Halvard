@@ -33,10 +33,12 @@ class Board:
         prot = self.store.protected_entities(self.ctx)
         if not prot: return None, "no protected machines registered"
         gaps = self.coverage.evaluate(record=False)
-        fresh = len(prot) - len(gaps)
+        failed = {r["device"] for r in getattr(self.coverage, "rows", []) if r["reason"] == "failed_open"}
+        penalized = {g.entity_id for g in gaps} | {e["entity_id"] for e in prot if e["entity_id"] in failed}
+        fresh = len(prot) - len(penalized)
         enforce = sum(1 for a in self.fleet.agents.values() if all(m == "enforce" for m in (a.bundle.prevention.get("bulk_encryption"), a.bundle.prevention.get("known_bad"))))
         pe = enforce / max(1, len(self.fleet.agents))
-        return round(100 * fresh / len(prot) * pe), f"{fresh} of {len(prot)} protected machines checked in on time; {enforce} of {len(self.fleet.agents)} agents set to block (not just watch). Score = coverage x blocking share."
+        return round(100 * fresh / len(prot) * pe), f"{fresh} of {len(prot)} protected machines checked in on time; {len(failed)} failed open; {enforce} of {len(self.fleet.agents)} agents set to block (not just watch). Score = coverage x blocking share."
 
     def _limit(self):
         agents = list(self.fleet.agents.values())
@@ -93,6 +95,11 @@ class Board:
         add("")
         add("ARE WE COVERED?")
         for k, p in s["outcomes"].items(): add(f"  {k}. {p['name']}: {p['score'] if p['score'] is not None else 'not measured'}. {p['why']}")
+        live, quiet, failed_open, no_agent = self.coverage_lists()
+        add("  Live: " + (", ".join(live) or "none"))
+        add("  Quiet: " + (", ".join(quiet) or "none"))
+        add("  Failed open: " + (", ".join(failed_open) or "none"))
+        add("  No agent: " + (", ".join(no_agent) or "none"))
         add(""); add("WHAT IS OPEN?")
         for x in items[:5]: add(f"  [{x.tier}] {x.title} on {x.entity_name}" + (f" ({'overdue' if x.overdue else 'within deadline'}, {x.age_days:.0f} days)" if x.status != "accepted_risk" else " (risk accepted)") + (f" — {x.note}" if x.note else ""))
         if len(items) > 5: add(f"  ...and {len(items) - 5} more, in the ranked list.")
@@ -106,6 +113,27 @@ class Board:
         for x in [e for e in ev if e["status"] in ("never_fired", "stale")][:5]: add(f"  Not yet seen working: {x['name']} ({x['control']}).")
         add(""); add("Not measured: backup restore tests, cloud accounts other than the connected one, and anything on machines without an agent.")
         return "\n".join(L)
+
+    def coverage_lists(self):
+        """Devices a person can sort: checking in, quiet, failed open, or no agent. This page is the notice. There is no pager."""
+        rows = getattr(self.coverage, "rows", [])
+        failed = {r["device"] for r in rows if r["reason"] == "failed_open"}
+        now = self.clock.now()
+        live, quiet, failed_open, no_agent = [], [], [], []
+        if self.store is None:
+            return live, quiet, failed_open, no_agent
+        for e in self.store.protected_entities(self.ctx):
+            eid = e["entity_id"]
+            if e["sensor_id"] is None:
+                no_agent.append(eid); continue
+            if eid in failed:
+                failed_open.append(eid); continue
+            last = e["last_heartbeat"] or 0
+            if now - last > (e["promised_interval_s"] or 0):
+                quiet.append(eid)
+            else:
+                live.append(eid)
+        return live, quiet, failed_open, no_agent
 
     def _stopped(self):
         from collections import Counter

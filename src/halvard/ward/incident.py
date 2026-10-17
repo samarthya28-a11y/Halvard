@@ -34,8 +34,12 @@ def render(inc, device, asset_class="standard"):
     rec = inc.get("recovery")
     if rec:
         L.append(f"  Recovery note: {rec['headline']}")
+        labels = {"restored": "Restored", "left_changed_later": "Left because it changed later", "not_restorable": "Not restorable"}
+        for item in rec.get("files") or []:
+            L.append(f"    {labels.get(item['status'], item['status'])}: {item['path']} — {item['reason']}")
         for item in rec["not_restored"]:
-            L.append(f"    Not restored: {item['reason']}")
+            if not rec.get("files"):
+                L.append(f"    Not restored: {item['reason']}")
         for c in rec["what_to_check"]:
             L.append(f"  - {c}")
     else:
