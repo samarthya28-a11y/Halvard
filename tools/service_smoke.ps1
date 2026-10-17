@@ -45,6 +45,7 @@ try {
   for ($i = 0; $i -lt 40; $i++) { Start-Sleep -Milliseconds 500; $new = (Get-CimInstance Win32_Service -Filter "Name='HalvardGuard'").ProcessId; if ($new -ne 0 -and $new -ne $before) { break } }
   Check ($new -ne 0 -and $new -ne $before) "service restarted itself (new pid $new)" "service did not restart after being killed"
 
+  for ($i = 0; $i -lt 40 -and -not ((Svc service status) -match "Running"); $i++) { Start-Sleep -Milliseconds 500 }   # wait out the start-pending window after the restart
   Say ("stop: " + (Svc service stop))
   Check ((Svc service status) -match "Stopped") "service stops cleanly" "service did not stop"
   Say (Svc service uninstall)

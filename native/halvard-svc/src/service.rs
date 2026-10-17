@@ -90,7 +90,8 @@ fn explain(e: windows_service::Error) -> String {
             Some(1060) => return "the service is not installed".into(),
             Some(1073) => return "the service is already installed".into(),
             Some(1072) => return "the service is marked for deletion; close services.msc and retry, or reboot".into(),
-            _ => {}
+            Some(c) => return format!("{s} (win32 error {c})"),
+            None => {}
         }
     }
     s
@@ -159,11 +160,20 @@ pub fn start() -> Result<String, String> {
 
 pub fn stop() -> Result<String, String> {
     let svc = manager(ServiceManagerAccess::CONNECT)?.open_service(NAME, ServiceAccess::STOP | ServiceAccess::QUERY_STATUS).map_err(explain)?;
-    if svc.query_status().map_err(explain)?.current_state != ServiceState::Stopped {
-        svc.stop().map_err(explain)?;
+    // A service that has just (re)started refuses controls while it is still StartPending (win32 error 1061): wait for it instead of failing.
+    let mut last = String::new();
+    for _ in 0..150 {
+        match svc.query_status().map_err(explain)?.current_state {
+            ServiceState::Stopped => return Ok("stopped".into()),
+            ServiceState::StopPending => {}
+            _ => match svc.stop() {
+                Ok(_) => {}
+                Err(e) => last = explain(e),
+            },
+        }
+        std::thread::sleep(Duration::from_millis(200));
     }
-    wait_for(&svc, ServiceState::Stopped, 20)?;
-    Ok("stopped".into())
+    Err(format!("the service did not stop within 30 s{}", if last.is_empty() { String::new() } else { format!(" (last error: {last})") }))
 }
 
 pub fn status() -> Result<String, String> {
@@ -172,12 +182,17 @@ pub fn status() -> Result<String, String> {
 }
 
 pub fn uninstall() -> Result<String, String> {
-    let _ = stop();
+    let stopped = stop();
     let svc = manager(ServiceManagerAccess::CONNECT)?.open_service(NAME, ServiceAccess::DELETE | ServiceAccess::QUERY_STATUS).map_err(explain)?;
     svc.delete().map_err(explain)?;
     drop(svc);
     let _ = std::fs::remove_file(program_files().join("halvard-svc.exe")); // may still be in use for a moment; harmless if it stays
-    Ok(format!("uninstalled {NAME}. Logs and config were left in {} (delete the folder to remove them)", program_data().display()))
+    let note = match stopped {
+        Ok(_) => String::new(),
+        Err(e) if e.contains("not installed") => String::new(),
+        Err(e) => format!(" WARNING: it could not be stopped first ({e}); it is marked for deletion and disappears when it stops or after a reboot."),
+    };
+    Ok(format!("uninstalled {NAME}. Logs and config were left in {} (delete the folder to remove them).{note}", program_data().display()))
 }
 
 // ---------------- the service itself ----------------

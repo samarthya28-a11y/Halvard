@@ -2,6 +2,11 @@
 
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
+## 0.8.10 - 2026-10-17
+- Service live test, first real run (owner, Administrator PowerShell, 15:58): PASS install (auto-start delayed, LocalSystem), restart-on-failure actions present, binary in Program Files, service Running, **service froze the attacker and logged it**, **service restarted itself after its process was killed**, no firewall or system settings changed. FAIL: stop ("IO error in winapi call"), which also left uninstall marked-for-deletion.
+- Cause (likely, to confirm on re-run): the stop request arrived while the freshly restarted service was still StartPending, when it accepts no controls (win32 error 1061).
+- Fix: `stop` now waits and retries through that window (up to 30 s) and reports the real win32 error code; `uninstall` says when the service could not be stopped first. Smoke script waits for Running before stopping. 20 Rust tests pass.
+
 ## 0.8.9 - 2026-10-17
 - Fix: `tools/service_smoke.ps1` aborted at its first step on Windows PowerShell 5.1 (native stderr treated as an exception under `-ErrorAction Stop`), so the 0.8.8 live service test never actually ran (owner's run showed `ERROR: error: the service is not installed`). Exe calls now go through `cmd /c ... 2>&1`; checked that uninstall-when-absent no longer aborts.
 - Docs: `docs/26-cursor-prompt-windows-client.md`, a review prompt for Cursor covering the native client.
