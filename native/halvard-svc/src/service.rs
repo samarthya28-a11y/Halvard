@@ -111,21 +111,44 @@ pub fn manifest_path() -> PathBuf {
     program_data().join("tripwires.json")
 }
 
-/// Every real, local profile's Documents folder (what the installer uses when no folders are given).
+/// Only accounts that are real people: local/domain users (S-1-5-21-...) and Microsoft/Azure AD accounts (S-1-12-1-...).
+/// Service accounts, IIS app pools (S-1-5-82-...), SYSTEM and built-ins never get decoys.
+pub fn is_user_sid(sid: &str) -> bool {
+    let s = sid.trim().to_uppercase();
+    (s.starts_with("S-1-5-21-") || s.starts_with("S-1-12-1-")) && !s.ends_with(".BAK")
+}
+
+/// Pull the profile folder out of `reg query <key> /v ProfileImagePath` output.
+pub fn parse_profile_path(reg_output: &str, system_drive: &str) -> Option<String> {
+    let line = reg_output.lines().find(|l| l.trim_start().starts_with("ProfileImagePath"))?;
+    let v = line.splitn(2, "REG_").nth(1)?; // "EXPAND_SZ    %SystemDrive%\Users\x"
+    let path = v.splitn(2, char::is_whitespace).nth(1)?.trim().replace("%SystemDrive%", system_drive).replace("%systemdrive%", system_drive);
+    if path.is_empty() { None } else { Some(path) }
+}
+
+fn reg(args: &[&str]) -> String {
+    std::process::Command::new("reg").args(args).output().map(|o| String::from_utf8_lossy(&o.stdout).to_string()).unwrap_or_default()
+}
+
+/// Every real person's Documents folder (what the installer uses when no folders are given).
 pub fn user_documents_dirs() -> Vec<String> {
-    let root = PathBuf::from(std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into()) + r"\Users");
-    let skip = ["public", "default", "default user", "all users"];
-    let mut v: Vec<String> = std::fs::read_dir(root)
-        .map(|rd| {
-            rd.flatten()
-                .filter(|e| e.path().is_dir() && !skip.contains(&e.file_name().to_string_lossy().to_lowercase().as_str()))
-                .map(|e| e.path().join("Documents"))
-                .filter(|p| p.is_dir())
-                .map(|p| p.to_string_lossy().to_string())
-                .collect()
-        })
-        .unwrap_or_default();
+    let drive = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into());
+    let base = r"HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList";
+    let mut v: Vec<String> = Vec::new();
+    for key in reg(&["query", base]).lines().map(str::trim).filter(|l| l.contains("ProfileList\\")) {
+        let sid = key.rsplit('\\').next().unwrap_or("");
+        if !is_user_sid(sid) {
+            continue;
+        }
+        if let Some(profile) = parse_profile_path(&reg(&["query", key, "/v", "ProfileImagePath"]), &drive) {
+            let docs = PathBuf::from(profile).join("Documents");
+            if docs.is_dir() {
+                v.push(docs.to_string_lossy().to_string());
+            }
+        }
+    }
     v.sort();
+    v.dedup();
     v
 }
 

@@ -43,3 +43,30 @@ fn log_file_rotates_instead_of_growing_forever() {
     assert!(std::fs::metadata(&f).unwrap().len() < 100, "new file starts small");
     let _ = std::fs::remove_dir_all(&d);
 }
+
+#[test]
+fn only_real_people_get_decoys_not_service_or_app_pool_accounts() {
+    use halvard_svc::service::is_user_sid;
+    assert!(is_user_sid("S-1-5-21-1004336348-1177238915-682003330-1001"));
+    assert!(is_user_sid("S-1-12-1-1234-5678-9012-3456"));
+    for bad in ["S-1-5-18", "S-1-5-19", "S-1-5-20", "S-1-5-80-1234567890-1", "S-1-5-82-3006700770-424185619-1745488364-794895919-4004696415", "S-1-5-21-1-2-3-1001.bak", "", "garbage"] {
+        assert!(!is_user_sid(bad), "{bad}");
+    }
+}
+
+#[test]
+fn profile_path_is_read_from_reg_output_even_with_odd_names() {
+    use halvard_svc::service::parse_profile_path;
+    let out = "\r\nHKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\ProfileList\\S-1-5-21-1\r\n    ProfileImagePath    REG_EXPAND_SZ    C:\\Users\\ASUS\r\n\r\n";
+    assert_eq!(parse_profile_path(out, "C:").unwrap(), r"C:\Users\ASUS");
+    let out2 = "    ProfileImagePath    REG_EXPAND_SZ    %SystemDrive%\\Users\\REG_Sam Smith\r\n";
+    assert_eq!(parse_profile_path(out2, "D:").unwrap(), r"D:\Users\REG_Sam Smith");
+    assert!(parse_profile_path("nothing here", "C:").is_none());
+}
+
+#[test]
+fn the_real_machine_list_contains_asus_and_no_service_profiles() {
+    let dirs = halvard_svc::service::user_documents_dirs();
+    let all = dirs.join(" | ").to_lowercase();
+    assert!(!all.contains(".net v4.5") && !all.contains("defaultapppool") && !all.contains("\\public\\") && !all.contains("\\default\\"), "{all}");
+}
