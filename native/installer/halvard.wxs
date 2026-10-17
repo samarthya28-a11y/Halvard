@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Halvard Guard installer (WiX 5). Per-machine: installing needs Administrator (UAC prompt, or an elevated shell for silent installs).
+  Silent:   msiexec /i halvard-<ver>-x64.msi /qn /l*v install.log [TRIPWIREDIRS="C:\Users\a\Documents;D:\Shares"]
+  Remove:   msiexec /x halvard-<ver>-x64.msi /qn
+  TRIPWIREDIRS (optional, semicolon list): folders that get decoy files. Empty = every user's Documents folder.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package Name="Halvard Guard" Manufacturer="Halvard" Version="$(Version)" UpgradeCode="6B2F3C5E-8A14-4D5B-9E71-3F0C2A9D4B18"
+           Scope="perMachine" Compressed="yes" InstallerVersion="500">
+    <SummaryInformation Description="Halvard Guard: stops file-encrypting programs the moment they touch a tripwire file." />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Halvard Guard is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="TRIPWIREDIRS" Secure="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Halvard">
+        <Component Id="GuardService" Guid="*" Bitness="always64">
+          <File Id="HalvardSvcExe" Source="$(ExePath)" KeyPath="yes" />
+          <ServiceInstall Id="HalvardGuardService" Name="HalvardGuard" DisplayName="Halvard Guard"
+                          Description="Halvard endpoint protection: freezes a program that changes a tripwire file."
+                          Type="ownProcess" Start="auto" ErrorControl="normal" Arguments="service-run" />
+          <ServiceControl Id="HalvardGuardControl" Name="HalvardGuard" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+          <!-- restart by itself after a failure: 5 s, three times, counter resets after a day -->
+          <util:ServiceConfig ServiceName="HalvardGuard" FirstFailureActionType="restart" SecondFailureActionType="restart"
+                              ThirdFailureActionType="restart" RestartServiceDelayInSeconds="5" ResetPeriodInDays="1" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="Halvard Guard" Level="1">
+      <ComponentRef Id="GuardService" />
+    </Feature>
+
+    <!-- places decoys and writes the service config (as SYSTEM), before the service starts -->
+    <CustomAction Id="ConfigureGuard" FileRef="HalvardSvcExe" ExeCommand='configure --dirs "[TRIPWIREDIRS]"'
+                  Execute="deferred" Impersonate="no" Return="check" />
+    <!-- delayed auto-start (does not slow the boot): set through the service API, because the MSI table for it is documented as unreliable -->
+    <CustomAction Id="DelayStart" FileRef="HalvardSvcExe" ExeCommand="service tune"
+                  Execute="deferred" Impersonate="no" Return="check" />
+    <!-- on a real uninstall (not an upgrade): remove decoys that are still ours -->
+    <CustomAction Id="RemoveDecoys" FileRef="HalvardSvcExe" ExeCommand="unconfigure"
+                  Execute="deferred" Impersonate="no" Return="ignore" />
+    <InstallExecuteSequence>
+      <Custom Action="ConfigureGuard" After="InstallFiles" Condition="NOT REMOVE" />
+      <Custom Action="DelayStart" After="InstallServices" Condition="NOT REMOVE" />
+      <Custom Action="RemoveDecoys" Before="RemoveFiles" Condition='REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE' />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

@@ -113,6 +113,36 @@ fn main() {
             }
         }
         #[cfg(windows)]
+        Some("configure") | Some("unconfigure") => {
+            use halvard_svc::service as s;
+            let r = if args[0] == "unconfigure" {
+                s::unconfigure()
+            } else {
+                let (mut dirs, mut trust) = (Vec::new(), Vec::new());
+                let mut it = args[1..].iter();
+                while let Some(a) = it.next() {
+                    match a.as_str() {
+                        // --dirs "C:\a;D:\b" (semicolon list, as the MSI property passes it; empty means every user's Documents)
+                        "--dirs" => dirs.extend(it.next().map(|v| v.split(';').filter(|x| !x.trim().is_empty()).map(|x| x.trim().to_string()).collect::<Vec<_>>()).unwrap_or_default()),
+                        "--dir" => dirs.extend(it.next().cloned()),
+                        "--trust" => trust.extend(it.next().cloned()),
+                        o => {
+                            eprintln!("error: unknown option {o}");
+                            std::process::exit(2)
+                        }
+                    }
+                }
+                s::configure(&dirs, &trust)
+            };
+            match r {
+                Ok(m) => println!("{m}"),
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    std::process::exit(1)
+                }
+            }
+        }
+        #[cfg(windows)]
         Some("stop") => halvard_svc::etw::stop_session(),
         #[cfg(windows)]
         Some("service-run") => {
@@ -130,6 +160,7 @@ fn main() {
                 "start" => s::start(),
                 "stop" => s::stop(),
                 "status" => s::status(),
+                "tune" => s::tune(),
                 _ => Err("use: service install|uninstall|start|stop|status".into()),
             };
             match r {

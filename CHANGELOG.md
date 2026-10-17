@@ -2,6 +2,14 @@
 
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
+## 0.8.13 - 2026-10-17
+- Windows installer: `native/installer/halvard.wxs` (WiX 5.0.2 + Util extension) and `tools/build_msi.ps1` -> `dist/halvard-<ver>-x64.msi` (0.64 MB). Per-machine; installs to Program Files, creates the service (auto-start, LocalSystem, restart after failure 5 s x3), starts it. Optional `TRIPWIREDIRS="C:;D:"` property; empty = every user's Documents folder.
+- New CLI: `configure [--dirs "a;b"|--dir D] [--trust name.exe]` (places decoys, writes the service config; fails only if no usable folder), `unconfigure` (removes decoys still unchanged, and the config), `service tune` (delayed auto-start, used by the MSI because the MSI table for it is documented as unreliable).
+- Custom actions: ConfigureGuard (after InstallFiles, not on removal), DelayStart (after InstallServices), RemoveDecoys (only on a real uninstall, never on upgrade). Verified by decompiling the built package.
+- Elevation: INSTALL and UNINSTALL need an Administrator (UAC prompt or elevated shell). Building the MSI, `place`, `tripwires list|remove`, `service status` do not.
+- Signing: `build_msi.ps1 -PfxPath cert.pfx` signs with signtool (not exercised: no certificate yet). Unsigned MSIs install but show "Unknown publisher".
+- Live install test script `tools/msi_smoke.ps1` (Administrator): NOT yet run. 28 Rust tests pass.
+
 ## 0.8.12 - 2026-10-17
 - Windows client: tripwire placement (`native/halvard-svc/src/place.rs`). `place --dir <folder> [--name f.xlsx]... [--manifest m.json]` creates decoys; `tripwires list|remove [manifest]`. Prints the `service install --tripwire ...` line to use next. No administrator needed.
 - Rules enforced and tested: absolute local folder only (never a drive root, network or `\?\` path, Windows, Program Files, ProgramData, Recycle Bin, Recovery, Boot); no `.`/`..`; refuses a folder reached through a junction or symlink (tested with a real junction); NEVER replaces an existing file (atomic create_new, no race); only safe names and document types; decoys are bland (no "halvard", "honeypot", "tripwire", "decoy" inside), deterministic, sort first (`!000-...`); `remove` deletes a file only if its SHA-256 still matches what was placed.

@@ -97,14 +97,67 @@ fn explain(e: windows_service::Error) -> String {
     s
 }
 
-pub fn install(cfg: &Config) -> Result<String, String> {
-    let mgr = manager(ServiceManagerAccess::CONNECT | ServiceManagerAccess::CREATE_SERVICE)?;
-    // 1. config folder, locked down
+/// Create the config folder (locked to admins/SYSTEM for writing) and write the config file.
+pub fn write_config(cfg: &Config) -> Result<(), String> {
     let pd = program_data();
     std::fs::create_dir_all(&pd).map_err(|e| format!("cannot create {}: {e} (elevated PowerShell needed)", pd.display()))?;
     let _ = std::process::Command::new("icacls")
         .arg(&pd).args(["/inheritance:r", "/grant:r", "SYSTEM:(OI)(CI)F", "Administrators:(OI)(CI)F", "Users:(OI)(CI)RX"]).output();
-    std::fs::write(config_path(), cfg.to_json()).map_err(|e| e.to_string())?;
+    std::fs::write(config_path(), cfg.to_json()).map_err(|e| e.to_string())
+}
+
+/// Manifest of the decoys placed for the service (kept next to the config, admin-writable only).
+pub fn manifest_path() -> PathBuf {
+    program_data().join("tripwires.json")
+}
+
+/// Every real, local profile's Documents folder (what the installer uses when no folders are given).
+pub fn user_documents_dirs() -> Vec<String> {
+    let root = PathBuf::from(std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into()) + r"\Users");
+    let skip = ["public", "default", "default user", "all users"];
+    let mut v: Vec<String> = std::fs::read_dir(root)
+        .map(|rd| {
+            rd.flatten()
+                .filter(|e| e.path().is_dir() && !skip.contains(&e.file_name().to_string_lossy().to_lowercase().as_str()))
+                .map(|e| e.path().join("Documents"))
+                .filter(|p| p.is_dir())
+                .map(|p| p.to_string_lossy().to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+    v.sort();
+    v
+}
+
+/// What the MSI runs: place decoys (given folders, or every user's Documents) and write the service config. Fails only if NO decoy could be used.
+pub fn configure(dirs: &[String], trust: &[String]) -> Result<String, String> {
+    let dirs: Vec<String> = if dirs.is_empty() { user_documents_dirs() } else { dirs.to_vec() };
+    let names: Vec<String> = crate::place::DEFAULT_NAMES.iter().map(|s| s.to_string()).collect();
+    let mut notes = Vec::new();
+    for d in &dirs {
+        match crate::place::place(d, &names, &manifest_path()) {
+            Ok(r) => notes.push(format!("{d}: {} placed, {} already there", r.iter().filter(|x| matches!(x, crate::place::Placed::Created(_))).count(), r.iter().filter(|x| matches!(x, crate::place::Placed::Skipped { .. })).count())),
+            Err(e) => notes.push(format!("{d}: skipped ({e})")),
+        }
+    }
+    let tripwires: Vec<String> = crate::place::status(&manifest_path()).into_iter().filter(|(_, s)| *s != crate::place::State::Missing).map(|(p, _)| p).collect();
+    if tripwires.is_empty() {
+        return Err(format!("no usable folder for decoys; nothing to guard. {}", notes.join("; ")));
+    }
+    write_config(&Config { tripwires: tripwires.clone(), trust: trust.to_vec() })?;
+    Ok(format!("configured {} tripwire(s). {}", tripwires.len(), notes.join("; ")))
+}
+
+/// What the MSI runs on a real uninstall: remove decoys that are still ours, and the config.
+pub fn unconfigure() -> Result<String, String> {
+    let (removed, left) = crate::place::remove(&manifest_path())?;
+    let _ = std::fs::remove_file(config_path());
+    Ok(format!("removed {} decoy(s), left {} that changed", removed.len(), left.len()))
+}
+
+pub fn install(cfg: &Config) -> Result<String, String> {
+    let mgr = manager(ServiceManagerAccess::CONNECT | ServiceManagerAccess::CREATE_SERVICE)?;
+    write_config(cfg)?;
     // 2. binary into Program Files
     let pf = program_files();
     std::fs::create_dir_all(&pf).map_err(|e| format!("cannot create {}: {e}", pf.display()))?;
@@ -149,6 +202,14 @@ fn wait_for(svc: &windows_service::service::Service, want: ServiceState, secs: u
         std::thread::sleep(Duration::from_millis(100));
     }
     Err(format!("timed out waiting for the service to reach {want:?}"))
+}
+
+/// Applied by the MSI after it creates the service: delayed auto-start, so the guard never slows the boot.
+pub fn tune() -> Result<String, String> {
+    let svc = manager(ServiceManagerAccess::CONNECT)?.open_service(NAME, ServiceAccess::CHANGE_CONFIG).map_err(explain)?;
+    svc.set_delayed_auto_start(true).map_err(explain)?;
+    svc.set_failure_actions_on_non_crash_failures(true).map_err(explain)?;
+    Ok("delayed auto-start set".into())
 }
 
 pub fn start() -> Result<String, String> {
