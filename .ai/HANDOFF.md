@@ -1,6 +1,6 @@
 # Halvard handoff (update after every major change)
 
-Version: 0.8.13 (see CHANGELOG.md). Branch: main. Python 3.11+, stdlib only.
+Version: 0.8.14 (0.8.13 MSI is installed on the owner PC: uninstall it first; the installer has no wizard window yet) (see CHANGELOG.md). Branch: main. Python 3.11+, stdlib only.
 
 ## State
 - Reference build, Phases 1-8. Tests: `python -W ignore -m unittest discover -s tests` -> 515 OK, 3 skipped on Windows.

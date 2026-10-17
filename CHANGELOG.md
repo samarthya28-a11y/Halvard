@@ -2,6 +2,12 @@
 
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
+## 0.8.14 - 2026-10-17
+- Owner double-clicked the 0.8.13 MSI: it DID install (service running, decoys placed) but showed no window, so "nothing happened". The MSI has no wizard UI yet (adding one needs the WiX UI extension; pending approval).
+- Bug found by that real install and fixed: with no folders given, `configure` enumerated every folder under the Users directory and placed decoys in service-account profiles (`.NET v4.5`, `DefaultAppPool`). Now reads the Windows profile list and only uses real people (`S-1-5-21-*` local/domain, `S-1-12-1-*` Azure AD): `is_user_sid`, `parse_profile_path`. 30 Rust tests pass (3 new, one runs against this machine).
+- Docs: `docs/27-cursor-prompt-full-review.md`, a full-project test and review prompt for Cursor.
+- Machine state to clean: 0.8.13 is installed on the owner's PC (decoys also in the service-account profiles). Uninstall with `msiexec /x` or Settings > Apps, then install 0.8.14.
+
 ## 0.8.13 - 2026-10-17
 - Windows installer: `native/installer/halvard.wxs` (WiX 5.0.2 + Util extension) and `tools/build_msi.ps1` -> `dist/halvard-<ver>-x64.msi` (0.64 MB). Per-machine; installs to Program Files, creates the service (auto-start, LocalSystem, restart after failure 5 s x3), starts it. Optional `TRIPWIREDIRS="C:;D:"` property; empty = every user's Documents folder.
 - New CLI: `configure [--dirs "a;b"|--dir D] [--trust name.exe]` (places decoys, writes the service config; fails only if no usable folder), `unconfigure` (removes decoys still unchanged, and the config), `service tune` (delayed auto-start, used by the MSI because the MSI table for it is documented as unreliable).
