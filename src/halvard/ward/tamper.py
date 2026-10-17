@@ -44,6 +44,8 @@ class TamperGuard:
         return hmac.compare_digest(good, sig) and float(exp) > self.clock.now() and nonce not in self.used_tokens
 
     def stop_or_uninstall(self, token, what="uninstall"):
+        if getattr(self.ledger, "pinned", False):
+            raise PermissionError("legal hold: the spool and its anchor cannot be removed")
         if not self._valid(token):
             self.ledger.append("ward.tamper_attempt", "unknown", "unknown", self.device_id, {"attempt": what},
                                controls=("WARD.TAMPER_PROTECTION",))

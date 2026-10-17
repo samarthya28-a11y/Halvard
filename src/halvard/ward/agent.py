@@ -95,11 +95,13 @@ class WardAgent:
         self.engine = ActionEngine(Authority(pol), self.spool, self.clock, self.host, self.journal,
                                    self.root / "relay", asset_class_of=lambda t: self.asset_class, device_id=self.device_id)
         self.engine.on_containment_released = self.release_containment
+        self.engine.blocked = self.blocked
+        self.journal.spool = self.spool
 
     # ---- policy ----
     def apply_bundle(self, raw: dict, key: bytes):
         try:
-            nb = load_bundle(raw, key, self.bundle.version)
+            nb = load_bundle(raw, getattr(self, "policy_verifier", None) or key, self.bundle.version)
         except BundleError as e:
             self.spool.append("ward.policy_rejected", "system", "system", self.device_id, {"why": str(e)},
                               controls=("WARD.POLICY_INTEGRITY",))
@@ -279,7 +281,7 @@ class WardAgent:
     # ---- commands from the control plane ----
     def execute_command(self, cmd, key: bytes):
         from ..relay import commands
-        ok, why = commands.verify(cmd, key, self.device_id, self.clock.now(), self._nonces, self.engine.auth, self.asset_class)
+        ok, why = commands.verify(cmd, getattr(self, "policy_verifier", None) or key, self.device_id, self.clock.now(), self._nonces, self.engine.auth, self.asset_class)
         if not ok:
             self.spool.append("ward.command_rejected", "controlplane", "system", self.device_id, {"why": why, "command": cmd.get("id")}, controls=("RELAY.COMMAND_CHANNEL",))
             return {"status": "rejected", "message": why}

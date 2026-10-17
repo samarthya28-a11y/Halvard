@@ -73,6 +73,6 @@ def decide(classification, channel, dest_class, rules=None, min_conf=0.7) -> Dec
             best = Decision(r["action"], r["id"], labels, r["message"] + (f" (Halvard could not read this file: {classification.unscannable}, so it is treated as regulated.)" if classification.unscannable and not labels else ""), r.get("justifiable", True), True)
     if classification.unscannable and (channel, dest_class) in UNREAD_BLOCK and not (best.action == "block" and not best.justifiable):
         best = Decision("block", "unread-regulated", labels,
-                        f"Halvard could not read this file ({classification.unscannable}). It is regulated, so a reason cannot copy it to an unapproved drive or an external address.",
+                        f"Halvard could not read this file ({classification.unscannable}). It is regulated, so a reason cannot copy it to an unapproved drive or an external address. Residual: file not read.",
                         False, True)
     return best

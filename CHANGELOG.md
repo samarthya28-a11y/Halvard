@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.10.3 - 2026-10-17
+Slice 3 — Privacy, sessions, and evidence (features 8, 13, 16, 18). **Built** in the Python reference.
+- Untrusted-content taint, the runaway limit, and suspension follow the agent. A new session id does not clear them. An approval runs once, and only when the call still matches the stored digest.
+- Ledger personal-data keys match without case sensitivity and inside nested dicts. The subject is scrubbed. Wiping the log and deleting the `.head` anchor fails verify, including after a new log is opened on those paths. A missing anchor fails verify even when the log is empty. The old local verify that returned clean after that wipe was wrong; the witness file is what a new log can still see.
+- Two distinct people can pin the spool and the anchor. Compact, uninstall, and export then refuse.
+- Keeper hides a first name when the HR name is longer, hides other case and entity ids, and does not hide that name inside a longer unrelated word.
+- A non-member's export is refused and the refusal is in that company's ledger.
+- Isolate, rollback, DLP, and the agent gateway end with a residual line taken from the result (minutes left, file not read, file not in the journal, pid frozen only until release).
+- Still a reference model. HMAC remains the default ledger seal and the ReferenceKMS cipher. A customer signing key is the next slice.
+
 ## 0.10.2 - 2026-10-17
 Slice 2 — Decoys, freeze, and unread data (features 7, 10, 11, 12). **Built** in the Python reference.
 - A customer cannot place a decoy in `/var`, `/opt`, `/root`, or `/run` (same refusal as `/etc`). An unwritable folder is skipped and logged; later decoys in the same policy still run. Exclusive create and hash-checked removal were already in 0.9.2.

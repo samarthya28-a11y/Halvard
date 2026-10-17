@@ -269,6 +269,9 @@ class Journal:
     @_locked
     def compact(self, older_than_s, pinned_pids=()):
         """Drop records and unreferenced blobs past retention, except those for pinned incident pids."""
+        spool = getattr(self, "spool", None)
+        if spool is not None and getattr(spool, "pinned", False):
+            raise PermissionError("legal hold: the spool and its anchor cannot be compacted")
         cutoff = self.clock.now() - older_than_s
         qs = ",".join("?" * len(pinned_pids)) or "NULL"
         self.db.execute(f"DELETE FROM rec WHERE ts<? AND pid NOT IN ({qs})", (cutoff, *pinned_pids)); self.db.commit()

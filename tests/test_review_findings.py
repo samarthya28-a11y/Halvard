@@ -187,7 +187,9 @@ class LedgerFindings(unittest.TestCase):
         for i in range(5): l.append("x.event", "halvard", "system", "s", {"n": i})
         os.remove(os.path.join(d, "t.log")); os.remove(os.path.join(d, "t.head"))
         fresh = self.log(d)
-        self.assertEqual(fresh.verify(), (True, []), "locally there is nothing left to notice: that is the hole")
+        # The previous expectation was (True, []): a wiped log plus a deleted anchor verified clean, and only an in-memory witness caught it. That was the hole.
+        ok, problems = fresh.verify()
+        self.assertFalse(ok, problems)
         ok, problems = fresh.verify(witnessed=seen[-1])
         self.assertFalse(ok); self.assertTrue(any("off-box witness" in p for p in problems), problems)
 

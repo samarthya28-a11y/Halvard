@@ -97,7 +97,15 @@ class KeeperDesk:
     def _redact(self, text, rec, ch):
         if ch.see_people: return text
         for r in rec.cp.hr.records.values():
-            for n in sorted(filter(None, (r.name, r.email, r.upn, r.sam, r.person)), key=len, reverse=True): text = re.sub(re.escape(n), f"[person {opaque(r.person)[2:6]}]", text, flags=re.IGNORECASE)
+            tokens = []
+            for n in (r.name, r.email, r.upn, r.sam, r.person):
+                if not n: continue
+                tokens.append(n)
+                if n == r.name:
+                    tokens.extend(part for part in n.split() if len(part) >= 2)
+            repl = f"[person {opaque(r.person)[2:6]}]"
+            for n in sorted(set(tokens), key=len, reverse=True):
+                text = re.sub(rf"(?<!\w){re.escape(n)}(?!\w)", repl, text, flags=re.IGNORECASE)
         return text
 
     def queue(self, crew):
