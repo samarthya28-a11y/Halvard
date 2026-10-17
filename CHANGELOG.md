@@ -2,6 +2,13 @@
 
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
+## 0.8.6 - 2026-10-17
+- Windows client M1b (`native/halvard-svc`): ETW session on Microsoft-Windows-Kernel-File (`etw.rs`) gives each file event its process; `guard.rs` maps FileObject to name and decides; a tripwire change freezes the offender via NtSuspendProcess. New command `halvard-svc guard <tripwire> [--trust name.exe]` (+ `stop`).
+- Safety: never freezes itself, pid <= 4, or system processes (csrss, lsass, svchost ... alert only); antivirus (MsMpEng.exe) trusted by default; object map bounded; ETW session stopped on Ctrl+C and stale sessions cleaned on start.
+- Event ids and keywords taken from this machine's provider manifest (`wevtutil gp Microsoft-Windows-Kernel-File /ge`).
+- 16 Rust tests pass (7 new guard tests, unelevated). **NOT verified live:** ETW needs an elevated PowerShell and the UAC prompt was cancelled. Run `powershell -ExecutionPolicy Bypass -File tools\etw_smoke.ps1` from an Administrator PowerShell; PASS means a fake attacker was frozen. Unverified guesses: property names for events 26/27 (FileName/FilePath) and header ProcessId being the issuing process.
+- Release exe 0.33 MB.
+
 ## 0.8.5 - 2026-10-17
 - Windows client M1 (Stage A prototype), `native/halvard-svc` (Rust, GNU toolchain for now): tripwire brain mirroring `WardAgent.tripwire_gate`, fixture replay (same JSONL as Python), ReadDirectoryChangesW watcher (blocking, no polling), NtSuspendProcess/NtResumeProcess freeze and thaw.
 - 9 Rust tests: conformance with the Python fixtures (tripwire first touch denied at event 1; office and compressor never blocked), real process freeze/thaw, protected pids refused, watcher latency under 500 ms.

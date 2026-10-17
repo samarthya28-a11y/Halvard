@@ -2,7 +2,9 @@ use halvard_svc::{brain, replay};
 use std::path::Path;
 
 fn usage() {
-    println!("halvard-svc {}\nUsage:\n  halvard-svc --version\n  halvard-svc replay <fixture.jsonl>\n  halvard-svc watch <folder> <tripwire-file-name>...", halvard_svc::VERSION);
+    println!("halvard-svc {}\nUsage:\n  halvard-svc --version\n  halvard-svc replay <fixture.jsonl>\n  halvard-svc watch <folder> <tripwire-file-name>...   (alert only, no admin needed)
+  halvard-svc guard <tripwire-full-path>... [--trust name.exe]   (ETW, needs Administrator; freezes the offender)
+  halvard-svc stop   (stop a stale ETW session)", halvard_svc::VERSION);
 }
 
 fn main() {
@@ -22,6 +24,26 @@ fn main() {
             let first_deny = res.iter().find(|(_, a)| !*a).map(|(s, _)| *s);
             println!("events {} allowed {} denied {} first_deny_seq {:?} blocked {:?}", res.len(), allowed, res.len() - allowed, first_deny, b.blocked());
         }
+        #[cfg(windows)]
+        Some("guard") if args.len() >= 2 => {
+            let (mut tws, mut trust) = (Vec::new(), Vec::new());
+            let mut it = args[1..].iter();
+            while let Some(a) = it.next() {
+                if a == "--trust" {
+                    if let Some(n) = it.next() {
+                        trust.push(n.clone());
+                    }
+                } else {
+                    tws.push(a.clone());
+                }
+            }
+            if let Err(e) = halvard_svc::etw::run(tws, trust) {
+                eprintln!("guard failed: {e}");
+                std::process::exit(1);
+            }
+        }
+        #[cfg(windows)]
+        Some("stop") => halvard_svc::etw::stop_session(),
         #[cfg(windows)]
         Some("watch") if args.len() >= 3 => {
             let dir = args[1].clone();

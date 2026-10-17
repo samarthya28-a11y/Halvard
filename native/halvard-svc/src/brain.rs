@@ -35,8 +35,17 @@ pub enum Decision {
 }
 
 /// Windows paths are case-insensitive and accept both separators: one key for every spelling.
+/// Also drops a drive letter or an NT device prefix (`\Device\HarddiskVolume3\...`, what ETW reports), so `C:\x` and the kernel's spelling of it collide.
 pub fn key(path: &str) -> String {
-    path.replace('\\', "/").to_lowercase()
+    let p = path.replace('\\', "/").to_lowercase();
+    if let Some(rest) = p.strip_prefix("/device/harddiskvolume") {
+        return rest.trim_start_matches(|c: char| c.is_ascii_digit()).to_string();
+    }
+    let b = p.as_bytes();
+    if b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':' {
+        return p[2..].to_string();
+    }
+    p
 }
 
 #[derive(Default)]
