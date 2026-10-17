@@ -2,6 +2,11 @@
 
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
+## 0.8.9 - 2026-10-17
+- Fix: `tools/service_smoke.ps1` aborted at its first step on Windows PowerShell 5.1 (native stderr treated as an exception under `-ErrorAction Stop`), so the 0.8.8 live service test never actually ran (owner's run showed `ERROR: error: the service is not installed`). Exe calls now go through `cmd /c ... 2>&1`; checked that uninstall-when-absent no longer aborts.
+- Docs: `docs/26-cursor-prompt-windows-client.md`, a review prompt for Cursor covering the native client.
+- Service live test still pending.
+
 ## 0.8.8 - 2026-10-17
 - Windows client: service wrapper (`native/halvard-svc`, `service.rs`, `logsink.rs`). Commands: `service install --tripwire <full path>... [--trust name.exe]`, `service uninstall|start|stop|status`; `service-run` is the entry point the service manager uses.
 - Install: auto-start (delayed), LocalSystem, restart after failure (5 s, three times, counter resets after a day, also on non-crash failures), description set. Binary is COPIED to `C:\Program Files\Halvard` (admin-writable only; a SYSTEM service must never run from a user-writable folder). Config `C:\ProgramData\Halvard\service.json`, folder ACL set to admins/SYSTEM write, users read. Alerts go to `guard.log` (5 MB cap, one rotated file).
