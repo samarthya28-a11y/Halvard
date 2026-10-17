@@ -1,0 +1,2 @@
+{"fixture": 1, "name": "ads_document", "description": "An alternate data stream is stored beside the file and does not replace the file bytes.", "processes": {"9": "editor.exe"}, "seed_files": [{"path": "docs/notes.docx", "kind": "text", "size": 3000}], "offline": false, "expect": {"deny_pids": [], "all_allowed": true}, "golden": "A"}
+{"seq": 1, "t_ms": 0, "pid": 9, "op": "ads", "path": "docs/notes.docx", "stream": "Zone.Identifier", "data": {"kind": "text", "size": 40, "seed": 1}}

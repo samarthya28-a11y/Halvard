@@ -9,14 +9,14 @@ Fixture file (JSON lines). Line 1 is the header, every other line is one event.
            "tripwires": [{"id", "path", "kind"}], "offline": bool, "expect": {...}, "golden": "AAAD..."}
   golden: one letter per event, A = allowed, D = denied, recorded from the Python reference by tools/gen_sensor_fixtures.py.
           Every sensor implementation (Python, Rust) must reproduce it exactly.
-  event:  {"seq", "t_ms", "pid", "op": create|write|rename|delete|read, "path", "dst"?, "data"?: {"kind": text|random|magic, "size", "seed"}}
-Paths are relative to the root folder the replay is given. Decision answers: "allow" or "deny".
+  event:  {"seq", "t_ms", "pid", "op": create|write|rename|delete|read|ads|delete_on_close, "path", "dst"?, "stream"?, "data"?: {"kind": text|random|magic, "size", "seed"}}
+Paths are relative to the root folder the replay is given. `\\\\?\\` and a leading drive letter are the same file. An 8.3 name in the header's short_names is the long file. An ads event keeps the main bytes and records path:stream (this reference has no NTFS). Decision answers: "allow" or "deny".
 """
 import hashlib, json, os
 from pathlib import Path
 
 SCHEMA_VERSION = 1
-OPS = ("create", "write", "rename", "delete", "read")
+OPS = ("create", "write", "rename", "delete", "read", "ads", "delete_on_close")
 
 
 def load(path):
@@ -50,21 +50,38 @@ def tripwire_specs(root, header):
     return [{"id": t["id"], "kind": t["kind"], "path": str(Path(root, t["path"]))} for t in header.get("tripwires", [])]
 
 
-def replay(fs, events, root, clock=None):
+def normalize(path, header=None):
+    """The path a native sensor must decide on. `\\\\?\\` is the same file. A drive letter is the volume, not a folder. An 8.3 name is the long file."""
+    p = str(path).replace("\\", "/")
+    if p.startswith("//?/"):
+        p = p[4:]
+    if len(p) >= 2 and p[1] == ":":
+        p = p[2:].lstrip("/")
+    shorts = {k.upper(): v.replace("\\", "/") for k, v in ((header or {}).get("short_names") or {}).items()}
+    long = shorts.get(os.path.basename(p).upper())
+    if long:
+        p = long
+    return p
+
+
+def replay(fs, events, root, clock=None, header=None):
     """Apply events through the file-hook contract. Returns [(seq, "allow"|"deny")]. Stops nothing itself: a denied event is just recorded. With a ManualClock, advances it by each event's t_ms."""
     from .ward.agent import Blocked
     out = []
     last_ms = 0
+    header = header or {}
     for e in events:
         if clock is not None:      # events carry their own time: the detector's 30 s window must see it
             clock.advance((e.get("t_ms", last_ms) - last_ms) / 1000.0); last_ms = e.get("t_ms", last_ms)
-        p = os.path.join(root, e["path"]); pid = e["pid"]
+        p = os.path.join(root, normalize(e["path"], header)); pid = e["pid"]
         try:
             if e["op"] == "create": fs.create(pid, p, materialize(e.get("data", {})))
             elif e["op"] == "write": fs.overwrite(pid, p, materialize(e.get("data", {})))
-            elif e["op"] == "rename": fs.rename(pid, p, os.path.join(root, e["dst"]))
+            elif e["op"] == "rename": fs.rename(pid, p, os.path.join(root, normalize(e["dst"], header)))
             elif e["op"] == "delete": fs.delete(pid, p)
             elif e["op"] == "read": fs.read(pid, p)
+            elif e["op"] == "ads": fs.ads(pid, p, e["stream"], materialize(e.get("data", {})))
+            elif e["op"] == "delete_on_close": fs.delete_on_close(pid, p)
             out.append((e["seq"], "allow"))
         except Blocked:
             out.append((e["seq"], "deny"))

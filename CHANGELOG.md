@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.7 - 2026-10-17
+Slice 7 — Windows contract, still not a driver (features 1 and 2). **Specified, native component not in this commit.**
+- Windows sensor and installer are specified and fixture-tested. They are not built.
+- `src/halvard/sensor.py` is the contract: the ProtectedFS cases, plus `\\?\` prefixes, 8.3 short names, alternate data streams, and delete-on-close. Fixtures are `tests/fixtures/sensor/win_prefix.jsonl`, `short_name.jsonl`, `ads_document.jsonl`, `ads_tripwire.jsonl`, `delete_on_close.jsonl`, and `delete_on_close_tripwire.jsonl`. The Python reference must reproduce each golden decision. The reference records a stream as `path:stream` because this tree has no NTFS.
+- The install manifest and the update manifest name the service `HalvardSvc`, the files that would be laid down, that decoys are removed only by the product's remove command, and that a failed configure rolls back. `built` is false. There is no MSI in this commit.
+- The fixture inventory test now lists these files. The previous list was the inventory before this contract.
+
 ## 0.10.6 - 2026-10-17
 Slice 6 — Coverage (features 9 and 15). **Built** in the Python reference. Native component not in this commit.
 - When the file hook allows an open because it threw, drops a pending record, or stops heartbeats, it writes one ledger event and one coverage row: device, reason, and time. The reason text is in the private half of the ledger because free-text reasons already live there.

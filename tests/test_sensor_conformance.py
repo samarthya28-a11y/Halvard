@@ -21,7 +21,7 @@ class ReplayTests(unittest.TestCase):
         for pid, n in header["processes"].items(): host.spawn(int(pid), n)
         seeded = sensor.seed(root, header)
         if specs: a._place_tripwires()
-        res = sensor.replay(fs, events, root, clock=clock)
+        res = sensor.replay(fs, events, root, clock=clock, header=header)
         return header, events, res, a, root, seeded
 
     def check(self, name):
@@ -60,8 +60,8 @@ class ReplayTests(unittest.TestCase):
 
     def test_every_fixture_in_the_folder_is_covered_and_valid(self):
         names = sorted(p.stem for p in FIX.glob("*.jsonl"))
-        self.assertEqual(names, ["below_threshold", "benign_compressor", "benign_office_session", "mixed_processes", "ransomware_copy_delete", "ransomware_entropy_jump",
-                                 "ransomware_overwrite_rename", "slow_burn", "tripwire_first_touch"])
+        self.assertEqual(names, ["ads_document", "ads_tripwire", "below_threshold", "benign_compressor", "benign_office_session", "delete_on_close", "delete_on_close_tripwire",
+                                 "mixed_processes", "ransomware_copy_delete", "ransomware_entropy_jump", "ransomware_overwrite_rename", "short_name", "slow_burn", "tripwire_first_touch", "win_prefix"])
         for n in names: sensor.load(FIX / f"{n}.jsonl")
 
     def test_unknown_op_or_version_is_refused(self):

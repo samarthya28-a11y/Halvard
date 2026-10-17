@@ -508,6 +508,18 @@ class ProtectedFS:
         self.a.emit("file", "rename", pid, str(src), ("ext_changed",) if ext_changed else (), dst_path=str(dst))
         self._observe(pid, dst, ("ext_changed",) if ext_changed else ())
 
+    def ads(self, pid, path, stream, data: bytes):
+        """An alternate data stream. The reference keeps it as path:stream because this tree has no NTFS. The main file bytes stay. A stream on a tripwire is a touch of that file."""
+        self._gate(pid); self.a.tripwire_gate(pid, "write", path)
+        side = f"{path}:{stream}"
+        rid, _ = self._before(pid, "create", side)
+        Path(side).parent.mkdir(parents=True, exist_ok=True); Path(side).write_bytes(data)
+        if rid: self.a.journal.after(rid, side, content=data)
+
+    def delete_on_close(self, pid, path):
+        """The handle was opened with delete-on-close. Closing it removes the file, through the same gate as delete."""
+        self.delete(pid, path)
+
     def delete(self, pid, path):
         self._gate(pid); self.a.tripwire_gate(pid, "delete", path)
         rid, before = self._before(pid, "delete", path)
