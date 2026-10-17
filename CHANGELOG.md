@@ -2,6 +2,10 @@
 
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
+## 0.8.11 - 2026-10-17
+- Windows service VERIFIED LIVE end to end (owner, Administrator PowerShell, 16:01, `tools/service_smoke.ps1`): RESULT ALL PASS. Install (auto-start delayed, LocalSystem), restart-on-failure actions, binary in Program Files, Running, attacker frozen and logged, service restarted itself after being killed, `stop` clean (the 0.8.10 fix works), uninstall removes the service, no firewall or other system settings changed.
+- Not yet verified live: delete/rename of a tripwire (ETW events 26/27), behaviour after reboot (auto-start), behaviour under normal load, coexistence with other security products.
+
 ## 0.8.10 - 2026-10-17
 - Service live test, first real run (owner, Administrator PowerShell, 15:58): PASS install (auto-start delayed, LocalSystem), restart-on-failure actions present, binary in Program Files, service Running, **service froze the attacker and logged it**, **service restarted itself after its process was killed**, no firewall or system settings changed. FAIL: stop ("IO error in winapi call"), which also left uninstall marked-for-deletion.
 - Cause (likely, to confirm on re-run): the stop request arrived while the freshly restarted service was still StartPending, when it accepts no controls (win32 error 1061).
