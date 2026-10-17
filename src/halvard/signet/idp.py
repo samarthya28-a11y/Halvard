@@ -90,6 +90,9 @@ class ReferenceIdP:
     # ---------------- sign-in ----------------
     def sign_in(self, upn, password, ip, geo, device_id=None, app="portal", mfa=None, protocol="modern", prompts=1):
         """mfa: 'approve' | 'deny' | None (no response). `prompts` models push spam: that many prompts are sent first."""
+        key = getattr(self, "signing_key", None)
+        if key is not None and getattr(key, "revoked", False):
+            self._emit("signin", upn, "failure", ip=ip, geo=geo, device_id=device_id, app=app, protocol=protocol, reason="signing key revoked"); raise AuthError("signing key revoked")
         u = self.users.get(upn)
         if protocol == "legacy" and not self.legacy_auth_allowed:
             self._emit("signin", upn, "failure", ip=ip, geo=geo, device_id=device_id, app=app, protocol="legacy", reason="legacy authentication blocked"); raise AuthError("legacy_blocked")

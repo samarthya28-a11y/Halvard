@@ -1,6 +1,6 @@
 # Halvard handoff (update after every major change)
 
-Version 0.10.3 (see CHANGELOG.md). Python 3.11+ stdlib only; Rust (GNU toolchain) for `native/`. Slices 1–3 are in the Python reference. The Windows service is still the Stage A ETW prototype, not a minifilter.
+Version 0.10.4 (see CHANGELOG.md). Python 3.11+ stdlib only; Rust (GNU toolchain) for `native/`. Slices 1–4 are in the Python reference. The Windows service is still the Stage A ETW prototype, not a minifilter. Customer signatures are reference RSA, not a KMS.
 
 ## Ground rules from the owner
 1. Update this file after every major change. 2. Version every change (`src/halvard/__init__.py` + `CHANGELOG.md`, git tag `vX.Y.Z`). 3. Keep advising on deployment, licensing, commercials, cloud vs on-prem (docs/24). 4. Keep researching competitors and recommend unique features.

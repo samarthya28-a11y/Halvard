@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.4 - 2026-10-17
+Slice 4 — Service boundary and keys (features 3 and 4). **Built** as a reference, native component not in this commit.
+- `customer`, `export`, `import_bundle`, `external_call`, and `dependency_report` require an enrolled member. A test helper may open `rec.cp`. Production methods do not open another company by id alone.
+- Policy bundles, device commands, and ledger entries can be verified with a reference RSA signature. The agent is given the public verifier. The private exponent stays on `CustomerSigner`. Revoking that key refuses export, sign-in, and new commands.
+- The head anchor is a separate file. Its absence fails verify even when the log is empty (landed in 0.10.3).
+- HMAC remains only as ReferenceKMS's stated cipher stand-in, and as the legacy shared-secret path the rest of this reference model still uses for bundles and commands that were not signed with the customer key. This RSA is not a hardware key and not a production KMS.
+
 ## 0.10.3 - 2026-10-17
 Slice 3 — Privacy, sessions, and evidence (features 8, 13, 16, 18). **Built** in the Python reference.
 - Untrusted-content taint, the runaway limit, and suspension follow the agent. A new session id does not clear them. An approval runs once, and only when the call still matches the stored digest.

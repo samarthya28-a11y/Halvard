@@ -41,15 +41,23 @@ class PolicyBundle:
     def body(self):
         d = asdict(self); d.pop("signature"); return d
 
-    def sign(self, key: bytes):
-        self.signature = hmac.new(key, _canon(self.body()), "sha256").hexdigest(); return self
+    def sign(self, key):
+        body = _canon(self.body())
+        if hasattr(key, "sign_bytes"): self.signature = key.sign_bytes(body)
+        else: self.signature = hmac.new(key, body, "sha256").hexdigest()
+        return self
 
 
-def load_bundle(raw: dict, key: bytes, current_version: int = 0) -> PolicyBundle:
+def load_bundle(raw: dict, key, current_version: int = 0) -> PolicyBundle:
     b = PolicyBundle(**raw)
-    good = hmac.new(key, _canon(b.body()), "sha256").hexdigest()
-    if not hmac.compare_digest(good, b.signature):
-        raise BundleError("policy bundle signature invalid; keeping the last good policy")
+    body = _canon(b.body())
+    if hasattr(key, "verify_bytes"):
+        if getattr(key, "revoked", False) or not key.verify_bytes(body, b.signature):
+            raise BundleError("policy bundle signature invalid; keeping the last good policy")
+    else:
+        good = hmac.new(key, body, "sha256").hexdigest()
+        if not hmac.compare_digest(good, b.signature):
+            raise BundleError("policy bundle signature invalid; keeping the last good policy")
     if b.version <= current_version:
         raise BundleError(f"policy version {b.version} is not newer than {current_version}; refusing rollback")
     return b

@@ -8,6 +8,11 @@ from halvard.relay.host import SimHost
 DEV_KEY, UNINSTALL_KEY, POLICY_KEY = b"dev-key-" * 4, b"uninst-k" * 4, b"policy-k" * 4
 
 
+def tenant_cp(platform, tenant_id):
+    """Test helper only. Production methods take an enrolled member and do not open a company by id alone."""
+    return platform.tenants[tenant_id].cp
+
+
 def make_agent(tmp, asset_class="standard", accepted=("ransomware_stop", "malware_quarantine", "undo"), **bundle_kw):
     clock = ManualClock()
     host = SimHost("LT-17", os.path.join(tmp, "host"))
