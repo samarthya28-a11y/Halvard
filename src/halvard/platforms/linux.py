@@ -234,7 +234,10 @@ class FanotifySensor:
         seen = self.opened.setdefault(pid, {})
         head = head or seen.get(path)            # a rate-limited re-open reuses the head from the first open of this file
         if len(self.pending) > 50_000:
-            self.pending.pop(next(iter(self.pending))); self.stats["pending_dropped"] = self.stats.get("pending_dropped", 0) + 1      # an open whose close we may never match: counted so a gap is visible, not silent
+            dropped = self.pending.pop(next(iter(self.pending)))
+            if dropped and dropped[0]:
+                j.drop_pending(dropped[0])      # the pre-image stays; rollback must not call this a clean restore
+            self.stats["pending_dropped"] = self.stats.get("pending_dropped", 0) + 1
         self.pending[(pid, st.st_dev, st.st_ino)] = (rid, head, st.st_size == 0)     # keyed by file identity: it may be renamed while open
         if head and len(seen) < 5000: seen[path] = head
         return FAN_ALLOW

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.1 - 2026-10-17
+Slice 1 — Recovery contract (features 6 and 17). **Built** in the Python reference.
+- A customer can read the incident page and see every file the rollback considered, each as restored, left because it changed later, or not restorable, with the reason. The list comes from the journal report.
+- An open whose close never arrives, and an open whose pending record was dropped, is not a clean rollback while the new bytes are still there.
+- Rename onto an existing file, a write through a symlink, and a hard link to a tripwire were already restored or stopped in 0.9.2. This slice puts those files on the incident list.
+- Still a reference model. The Linux fanotify stand-in marks a dropped pending open in the journal. A Windows minifilter is not in this commit.
+
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
 ## 0.9.2 - 2026-10-17
