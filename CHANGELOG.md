@@ -2,6 +2,10 @@
 
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
+## 0.8.7 - 2026-10-17
+- Windows client M1b VERIFIED LIVE (owner ran `tools/etw_smoke.ps1` from an Administrator PowerShell, 2026-10-17): ETW attributed the write to the right process (powershell.exe, pid shown), `Open`+`Write` through the FileObject map matched the decoy, the process was frozen (`"frozen":true`, tick file stopped growing), PASS.
+- Still unverified live: delete/rename events (ids 26/27 property names), ordinary-load behaviour, long soak, other EDR products running alongside.
+
 ## 0.8.6 - 2026-10-17
 - Windows client M1b (`native/halvard-svc`): ETW session on Microsoft-Windows-Kernel-File (`etw.rs`) gives each file event its process; `guard.rs` maps FileObject to name and decides; a tripwire change freezes the offender via NtSuspendProcess. New command `halvard-svc guard <tripwire> [--trust name.exe]` (+ `stop`).
 - Safety: never freezes itself, pid <= 4, or system processes (csrss, lsass, svchost ... alert only); antivirus (MsMpEng.exe) trusted by default; object map bounded; ETW session stopped on Ctrl+C and stale sessions cleaned on start.
