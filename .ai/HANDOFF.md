@@ -1,6 +1,6 @@
 # Halvard handoff (update after every major change)
 
-Version: 0.8.2 (see CHANGELOG.md). Branch: main. Python 3.11+, stdlib only.
+Version: 0.8.3 (see CHANGELOG.md). Branch: main. Python 3.11+, stdlib only.
 
 ## State
 - Reference build, Phases 1-8. Tests: `python -W ignore -m unittest discover -s tests` -> 504 OK, 3 skipped on Windows.
@@ -11,6 +11,9 @@ Version: 0.8.2 (see CHANGELOG.md). Branch: main. Python 3.11+, stdlib only.
 ## Exe
 - `powershell -File tools/build_exe.ps1` -> dist/halvard.exe (10.7 MB, ~30 MB RAM). dist/ and build/ are gitignored.
 - Next for a real light client: native Windows sensor (ReadDirectoryChangesW + process events), run as a service, MSI/winget installer, code signing, onedir build to avoid the ~1 s startup extraction.
+
+## Windows client
+- Plan and sensor design in docs/25-windows-client-plan.md (awaiting owner decisions: Rust vs C++, Stage A first, signing owner). Next step if approved: M0 (sensor interface, event fixtures, Windows budget test).
 
 ## Open / pending
 - docs/07 and docs/11 were overwritten by a Windows acceptance run; revert with `git checkout -- docs/07-phase1-evidence.md docs/11-phase3-evidence.md` (user approval pending).
