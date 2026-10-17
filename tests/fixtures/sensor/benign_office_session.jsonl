@@ -1,0 +1,86 @@
+{"fixture": 1, "name": "benign_office_session", "description": "A word processor autosaves, saves via temp-and-rename, reads and cleans up scratch files; nothing may be blocked.", "processes": {"100": "winword.exe"}, "seed_files": [{"path": "docs/file0.docx", "kind": "text", "size": 3000}, {"path": "docs/file1.docx", "kind": "text", "size": 3000}, {"path": "docs/file2.docx", "kind": "text", "size": 3000}, {"path": "docs/file3.docx", "kind": "text", "size": 3000}, {"path": "docs/file4.docx", "kind": "text", "size": 3000}, {"path": "docs/file5.docx", "kind": "text", "size": 3000}, {"path": "docs/file6.docx", "kind": "text", "size": 3000}, {"path": "docs/file7.docx", "kind": "text", "size": 3000}, {"path": "docs/file8.docx", "kind": "text", "size": 3000}, {"path": "docs/file9.docx", "kind": "text", "size": 3000}, {"path": "docs/file10.docx", "kind": "text", "size": 3000}, {"path": "docs/file11.docx", "kind": "text", "size": 3000}, {"path": "docs/file12.docx", "kind": "text", "size": 3000}, {"path": "docs/file13.docx", "kind": "text", "size": 3000}, {"path": "docs/file14.docx", "kind": "text", "size": 3000}, {"path": "docs/file15.docx", "kind": "text", "size": 3000}, {"path": "docs/file16.docx", "kind": "text", "size": 3000}, {"path": "docs/file17.docx", "kind": "text", "size": 3000}, {"path": "docs/file18.docx", "kind": "text", "size": 3000}, {"path": "docs/file19.docx", "kind": "text", "size": 3000}], "offline": true, "expect": {"deny_pids": [], "all_allowed": true}}
+{"seq": 1, "t_ms": 0, "pid": 100, "op": "read", "path": "docs/file11.docx"}
+{"seq": 2, "t_ms": 40, "pid": 100, "op": "read", "path": "docs/file16.docx"}
+{"seq": 3, "t_ms": 80, "pid": 100, "op": "write", "path": "docs/file14.docx", "data": {"kind": "text", "size": 3000, "seed": 2}}
+{"seq": 4, "t_ms": 120, "pid": 100, "op": "read", "path": "docs/file7.docx"}
+{"seq": 5, "t_ms": 160, "pid": 100, "op": "read", "path": "docs/file5.docx"}
+{"seq": 6, "t_ms": 200, "pid": 100, "op": "write", "path": "docs/file15.docx", "data": {"kind": "text", "size": 3000, "seed": 5}}
+{"seq": 7, "t_ms": 240, "pid": 100, "op": "create", "path": "docs/scratch6.dat", "data": {"kind": "text", "size": 500, "seed": 6}}
+{"seq": 8, "t_ms": 280, "pid": 100, "op": "delete", "path": "docs/scratch6.dat"}
+{"seq": 9, "t_ms": 320, "pid": 100, "op": "create", "path": "docs/new7.tmp", "data": {"kind": "text", "size": 2000, "seed": 7}}
+{"seq": 10, "t_ms": 360, "pid": 100, "op": "rename", "path": "docs/new7.tmp", "dst": "docs/new7.docx"}
+{"seq": 11, "t_ms": 400, "pid": 100, "op": "write", "path": "docs/file6.docx", "data": {"kind": "text", "size": 3000, "seed": 8}}
+{"seq": 12, "t_ms": 440, "pid": 100, "op": "create", "path": "docs/new9.tmp", "data": {"kind": "text", "size": 2000, "seed": 9}}
+{"seq": 13, "t_ms": 480, "pid": 100, "op": "rename", "path": "docs/new9.tmp", "dst": "docs/new9.docx"}
+{"seq": 14, "t_ms": 520, "pid": 100, "op": "create", "path": "docs/scratch10.dat", "data": {"kind": "text", "size": 500, "seed": 10}}
+{"seq": 15, "t_ms": 560, "pid": 100, "op": "delete", "path": "docs/scratch10.dat"}
+{"seq": 16, "t_ms": 600, "pid": 100, "op": "write", "path": "docs/file2.docx", "data": {"kind": "text", "size": 3000, "seed": 11}}
+{"seq": 17, "t_ms": 640, "pid": 100, "op": "write", "path": "docs/file19.docx", "data": {"kind": "text", "size": 3000, "seed": 12}}
+{"seq": 18, "t_ms": 680, "pid": 100, "op": "create", "path": "docs/new13.tmp", "data": {"kind": "text", "size": 2000, "seed": 13}}
+{"seq": 19, "t_ms": 720, "pid": 100, "op": "rename", "path": "docs/new13.tmp", "dst": "docs/new13.docx"}
+{"seq": 20, "t_ms": 760, "pid": 100, "op": "write", "path": "docs/file0.docx", "data": {"kind": "text", "size": 3000, "seed": 14}}
+{"seq": 21, "t_ms": 800, "pid": 100, "op": "write", "path": "docs/file6.docx", "data": {"kind": "text", "size": 3000, "seed": 15}}
+{"seq": 22, "t_ms": 840, "pid": 100, "op": "create", "path": "docs/scratch16.dat", "data": {"kind": "text", "size": 500, "seed": 16}}
+{"seq": 23, "t_ms": 880, "pid": 100, "op": "delete", "path": "docs/scratch16.dat"}
+{"seq": 24, "t_ms": 920, "pid": 100, "op": "create", "path": "docs/scratch17.dat", "data": {"kind": "text", "size": 500, "seed": 17}}
+{"seq": 25, "t_ms": 960, "pid": 100, "op": "delete", "path": "docs/scratch17.dat"}
+{"seq": 26, "t_ms": 1000, "pid": 100, "op": "write", "path": "docs/file6.docx", "data": {"kind": "text", "size": 3000, "seed": 18}}
+{"seq": 27, "t_ms": 1040, "pid": 100, "op": "create", "path": "docs/new19.tmp", "data": {"kind": "text", "size": 2000, "seed": 19}}
+{"seq": 28, "t_ms": 1080, "pid": 100, "op": "rename", "path": "docs/new19.tmp", "dst": "docs/new19.docx"}
+{"seq": 29, "t_ms": 1120, "pid": 100, "op": "write", "path": "docs/file6.docx", "data": {"kind": "text", "size": 3000, "seed": 20}}
+{"seq": 30, "t_ms": 1160, "pid": 100, "op": "create", "path": "docs/scratch21.dat", "data": {"kind": "text", "size": 500, "seed": 21}}
+{"seq": 31, "t_ms": 1200, "pid": 100, "op": "delete", "path": "docs/scratch21.dat"}
+{"seq": 32, "t_ms": 1240, "pid": 100, "op": "write", "path": "docs/file11.docx", "data": {"kind": "text", "size": 3000, "seed": 22}}
+{"seq": 33, "t_ms": 1280, "pid": 100, "op": "create", "path": "docs/new23.tmp", "data": {"kind": "text", "size": 2000, "seed": 23}}
+{"seq": 34, "t_ms": 1320, "pid": 100, "op": "rename", "path": "docs/new23.tmp", "dst": "docs/new23.docx"}
+{"seq": 35, "t_ms": 1360, "pid": 100, "op": "write", "path": "docs/file10.docx", "data": {"kind": "text", "size": 3000, "seed": 24}}
+{"seq": 36, "t_ms": 1400, "pid": 100, "op": "write", "path": "docs/file19.docx", "data": {"kind": "text", "size": 3000, "seed": 25}}
+{"seq": 37, "t_ms": 1440, "pid": 100, "op": "create", "path": "docs/new26.tmp", "data": {"kind": "text", "size": 2000, "seed": 26}}
+{"seq": 38, "t_ms": 1480, "pid": 100, "op": "rename", "path": "docs/new26.tmp", "dst": "docs/new26.docx"}
+{"seq": 39, "t_ms": 1520, "pid": 100, "op": "read", "path": "docs/file10.docx"}
+{"seq": 40, "t_ms": 1560, "pid": 100, "op": "write", "path": "docs/file11.docx", "data": {"kind": "text", "size": 3000, "seed": 28}}
+{"seq": 41, "t_ms": 1600, "pid": 100, "op": "create", "path": "docs/scratch29.dat", "data": {"kind": "text", "size": 500, "seed": 29}}
+{"seq": 42, "t_ms": 1640, "pid": 100, "op": "delete", "path": "docs/scratch29.dat"}
+{"seq": 43, "t_ms": 1680, "pid": 100, "op": "read", "path": "docs/file5.docx"}
+{"seq": 44, "t_ms": 1720, "pid": 100, "op": "create", "path": "docs/new31.tmp", "data": {"kind": "text", "size": 2000, "seed": 31}}
+{"seq": 45, "t_ms": 1760, "pid": 100, "op": "rename", "path": "docs/new31.tmp", "dst": "docs/new31.docx"}
+{"seq": 46, "t_ms": 1800, "pid": 100, "op": "write", "path": "docs/file0.docx", "data": {"kind": "text", "size": 3000, "seed": 32}}
+{"seq": 47, "t_ms": 1840, "pid": 100, "op": "create", "path": "docs/scratch33.dat", "data": {"kind": "text", "size": 500, "seed": 33}}
+{"seq": 48, "t_ms": 1880, "pid": 100, "op": "delete", "path": "docs/scratch33.dat"}
+{"seq": 49, "t_ms": 1920, "pid": 100, "op": "create", "path": "docs/scratch34.dat", "data": {"kind": "text", "size": 500, "seed": 34}}
+{"seq": 50, "t_ms": 1960, "pid": 100, "op": "delete", "path": "docs/scratch34.dat"}
+{"seq": 51, "t_ms": 2000, "pid": 100, "op": "create", "path": "docs/new35.tmp", "data": {"kind": "text", "size": 2000, "seed": 35}}
+{"seq": 52, "t_ms": 2040, "pid": 100, "op": "rename", "path": "docs/new35.tmp", "dst": "docs/new35.docx"}
+{"seq": 53, "t_ms": 2080, "pid": 100, "op": "write", "path": "docs/file18.docx", "data": {"kind": "text", "size": 3000, "seed": 36}}
+{"seq": 54, "t_ms": 2120, "pid": 100, "op": "create", "path": "docs/scratch37.dat", "data": {"kind": "text", "size": 500, "seed": 37}}
+{"seq": 55, "t_ms": 2160, "pid": 100, "op": "delete", "path": "docs/scratch37.dat"}
+{"seq": 56, "t_ms": 2200, "pid": 100, "op": "write", "path": "docs/file5.docx", "data": {"kind": "text", "size": 3000, "seed": 38}}
+{"seq": 57, "t_ms": 2240, "pid": 100, "op": "read", "path": "docs/file6.docx"}
+{"seq": 58, "t_ms": 2280, "pid": 100, "op": "write", "path": "docs/file7.docx", "data": {"kind": "text", "size": 3000, "seed": 40}}
+{"seq": 59, "t_ms": 2320, "pid": 100, "op": "create", "path": "docs/scratch41.dat", "data": {"kind": "text", "size": 500, "seed": 41}}
+{"seq": 60, "t_ms": 2360, "pid": 100, "op": "delete", "path": "docs/scratch41.dat"}
+{"seq": 61, "t_ms": 2400, "pid": 100, "op": "write", "path": "docs/file11.docx", "data": {"kind": "text", "size": 3000, "seed": 42}}
+{"seq": 62, "t_ms": 2440, "pid": 100, "op": "create", "path": "docs/scratch43.dat", "data": {"kind": "text", "size": 500, "seed": 43}}
+{"seq": 63, "t_ms": 2480, "pid": 100, "op": "delete", "path": "docs/scratch43.dat"}
+{"seq": 64, "t_ms": 2520, "pid": 100, "op": "read", "path": "docs/file3.docx"}
+{"seq": 65, "t_ms": 2560, "pid": 100, "op": "create", "path": "docs/new45.tmp", "data": {"kind": "text", "size": 2000, "seed": 45}}
+{"seq": 66, "t_ms": 2600, "pid": 100, "op": "rename", "path": "docs/new45.tmp", "dst": "docs/new45.docx"}
+{"seq": 67, "t_ms": 2640, "pid": 100, "op": "create", "path": "docs/scratch46.dat", "data": {"kind": "text", "size": 500, "seed": 46}}
+{"seq": 68, "t_ms": 2680, "pid": 100, "op": "delete", "path": "docs/scratch46.dat"}
+{"seq": 69, "t_ms": 2720, "pid": 100, "op": "create", "path": "docs/new47.tmp", "data": {"kind": "text", "size": 2000, "seed": 47}}
+{"seq": 70, "t_ms": 2760, "pid": 100, "op": "rename", "path": "docs/new47.tmp", "dst": "docs/new47.docx"}
+{"seq": 71, "t_ms": 2800, "pid": 100, "op": "write", "path": "docs/file16.docx", "data": {"kind": "text", "size": 3000, "seed": 48}}
+{"seq": 72, "t_ms": 2840, "pid": 100, "op": "read", "path": "docs/file4.docx"}
+{"seq": 73, "t_ms": 2880, "pid": 100, "op": "write", "path": "docs/file17.docx", "data": {"kind": "text", "size": 3000, "seed": 50}}
+{"seq": 74, "t_ms": 2920, "pid": 100, "op": "write", "path": "docs/file10.docx", "data": {"kind": "text", "size": 3000, "seed": 51}}
+{"seq": 75, "t_ms": 2960, "pid": 100, "op": "write", "path": "docs/file2.docx", "data": {"kind": "text", "size": 3000, "seed": 52}}
+{"seq": 76, "t_ms": 3000, "pid": 100, "op": "read", "path": "docs/file9.docx"}
+{"seq": 77, "t_ms": 3040, "pid": 100, "op": "create", "path": "docs/scratch54.dat", "data": {"kind": "text", "size": 500, "seed": 54}}
+{"seq": 78, "t_ms": 3080, "pid": 100, "op": "delete", "path": "docs/scratch54.dat"}
+{"seq": 79, "t_ms": 3120, "pid": 100, "op": "read", "path": "docs/file2.docx"}
+{"seq": 80, "t_ms": 3160, "pid": 100, "op": "create", "path": "docs/scratch56.dat", "data": {"kind": "text", "size": 500, "seed": 56}}
+{"seq": 81, "t_ms": 3200, "pid": 100, "op": "delete", "path": "docs/scratch56.dat"}
+{"seq": 82, "t_ms": 3240, "pid": 100, "op": "create", "path": "docs/scratch57.dat", "data": {"kind": "text", "size": 500, "seed": 57}}
+{"seq": 83, "t_ms": 3280, "pid": 100, "op": "delete", "path": "docs/scratch57.dat"}
+{"seq": 84, "t_ms": 3320, "pid": 100, "op": "write", "path": "docs/file19.docx", "data": {"kind": "text", "size": 3000, "seed": 58}}
+{"seq": 85, "t_ms": 3360, "pid": 100, "op": "write", "path": "docs/file8.docx", "data": {"kind": "text", "size": 3000, "seed": 59}}

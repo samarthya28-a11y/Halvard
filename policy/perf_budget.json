@@ -12,5 +12,13 @@
     "workday_seconds": 28800,
     "slow_machine_factor": 2.0,
     "note": "Measured on a 4-core cloud VM; slow_machine_factor 2.0 models a 2-core five-year-old PC until a real-hardware CI lane exists. CPU = agent overhead (hooked minus unhooked identical operations). Added latency p99 includes first-capture journal copies. Median of 3 runs. The reference build is Python; the native agent must meet the same trace."
+  },
+  "windows_native_service": {
+    "_comment": "Targets for the resident Windows client (docs/25). Not met by the Python reference by design; a native build must report measurements that pass sensor.check_budget.",
+    "idle_cpu_percent_of_one_core_max": 0.5,
+    "memory_mb_max": 30,
+    "added_latency_p50_microseconds_max": 1000,
+    "added_latency_p99_microseconds_max": 5000,
+    "install_footprint_mb_max": 25
   }
 }

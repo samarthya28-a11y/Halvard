@@ -1,0 +1,81 @@
+{"fixture": 1, "name": "ransomware_overwrite_rename", "description": "Unknown program overwrites each document with random data and renames it .locked; must be stopped after a handful and every file restored.", "processes": {"4242": "burst.exe"}, "seed_files": [{"path": "docs/file0.docx", "kind": "text", "size": 3000}, {"path": "docs/file1.docx", "kind": "text", "size": 3000}, {"path": "docs/file2.docx", "kind": "text", "size": 3000}, {"path": "docs/file3.docx", "kind": "text", "size": 3000}, {"path": "docs/file4.docx", "kind": "text", "size": 3000}, {"path": "docs/file5.docx", "kind": "text", "size": 3000}, {"path": "docs/file6.docx", "kind": "text", "size": 3000}, {"path": "docs/file7.docx", "kind": "text", "size": 3000}, {"path": "docs/file8.docx", "kind": "text", "size": 3000}, {"path": "docs/file9.docx", "kind": "text", "size": 3000}, {"path": "docs/file10.docx", "kind": "text", "size": 3000}, {"path": "docs/file11.docx", "kind": "text", "size": 3000}, {"path": "docs/file12.docx", "kind": "text", "size": 3000}, {"path": "docs/file13.docx", "kind": "text", "size": 3000}, {"path": "docs/file14.docx", "kind": "text", "size": 3000}, {"path": "docs/file15.docx", "kind": "text", "size": 3000}, {"path": "docs/file16.docx", "kind": "text", "size": 3000}, {"path": "docs/file17.docx", "kind": "text", "size": 3000}, {"path": "docs/file18.docx", "kind": "text", "size": 3000}, {"path": "docs/file19.docx", "kind": "text", "size": 3000}, {"path": "docs/file20.docx", "kind": "text", "size": 3000}, {"path": "docs/file21.docx", "kind": "text", "size": 3000}, {"path": "docs/file22.docx", "kind": "text", "size": 3000}, {"path": "docs/file23.docx", "kind": "text", "size": 3000}, {"path": "docs/file24.docx", "kind": "text", "size": 3000}, {"path": "docs/file25.docx", "kind": "text", "size": 3000}, {"path": "docs/file26.docx", "kind": "text", "size": 3000}, {"path": "docs/file27.docx", "kind": "text", "size": 3000}, {"path": "docs/file28.docx", "kind": "text", "size": 3000}, {"path": "docs/file29.docx", "kind": "text", "size": 3000}, {"path": "docs/file30.docx", "kind": "text", "size": 3000}, {"path": "docs/file31.docx", "kind": "text", "size": 3000}, {"path": "docs/file32.docx", "kind": "text", "size": 3000}, {"path": "docs/file33.docx", "kind": "text", "size": 3000}, {"path": "docs/file34.docx", "kind": "text", "size": 3000}, {"path": "docs/file35.docx", "kind": "text", "size": 3000}, {"path": "docs/file36.docx", "kind": "text", "size": 3000}, {"path": "docs/file37.docx", "kind": "text", "size": 3000}, {"path": "docs/file38.docx", "kind": "text", "size": 3000}, {"path": "docs/file39.docx", "kind": "text", "size": 3000}], "offline": true, "expect": {"deny_pids": [4242], "max_allowed_changes": 20, "files_restored": true, "no_locked_files": true}}
+{"seq": 1, "t_ms": 0, "pid": 4242, "op": "write", "path": "docs/file0.docx", "data": {"kind": "random", "size": 3000, "seed": 0}}
+{"seq": 2, "t_ms": 40, "pid": 4242, "op": "rename", "path": "docs/file0.docx", "dst": "docs/file0.docx.locked"}
+{"seq": 3, "t_ms": 80, "pid": 4242, "op": "write", "path": "docs/file1.docx", "data": {"kind": "random", "size": 3000, "seed": 1}}
+{"seq": 4, "t_ms": 120, "pid": 4242, "op": "rename", "path": "docs/file1.docx", "dst": "docs/file1.docx.locked"}
+{"seq": 5, "t_ms": 160, "pid": 4242, "op": "write", "path": "docs/file2.docx", "data": {"kind": "random", "size": 3000, "seed": 2}}
+{"seq": 6, "t_ms": 200, "pid": 4242, "op": "rename", "path": "docs/file2.docx", "dst": "docs/file2.docx.locked"}
+{"seq": 7, "t_ms": 240, "pid": 4242, "op": "write", "path": "docs/file3.docx", "data": {"kind": "random", "size": 3000, "seed": 3}}
+{"seq": 8, "t_ms": 280, "pid": 4242, "op": "rename", "path": "docs/file3.docx", "dst": "docs/file3.docx.locked"}
+{"seq": 9, "t_ms": 320, "pid": 4242, "op": "write", "path": "docs/file4.docx", "data": {"kind": "random", "size": 3000, "seed": 4}}
+{"seq": 10, "t_ms": 360, "pid": 4242, "op": "rename", "path": "docs/file4.docx", "dst": "docs/file4.docx.locked"}
+{"seq": 11, "t_ms": 400, "pid": 4242, "op": "write", "path": "docs/file5.docx", "data": {"kind": "random", "size": 3000, "seed": 5}}
+{"seq": 12, "t_ms": 440, "pid": 4242, "op": "rename", "path": "docs/file5.docx", "dst": "docs/file5.docx.locked"}
+{"seq": 13, "t_ms": 480, "pid": 4242, "op": "write", "path": "docs/file6.docx", "data": {"kind": "random", "size": 3000, "seed": 6}}
+{"seq": 14, "t_ms": 520, "pid": 4242, "op": "rename", "path": "docs/file6.docx", "dst": "docs/file6.docx.locked"}
+{"seq": 15, "t_ms": 560, "pid": 4242, "op": "write", "path": "docs/file7.docx", "data": {"kind": "random", "size": 3000, "seed": 7}}
+{"seq": 16, "t_ms": 600, "pid": 4242, "op": "rename", "path": "docs/file7.docx", "dst": "docs/file7.docx.locked"}
+{"seq": 17, "t_ms": 640, "pid": 4242, "op": "write", "path": "docs/file8.docx", "data": {"kind": "random", "size": 3000, "seed": 8}}
+{"seq": 18, "t_ms": 680, "pid": 4242, "op": "rename", "path": "docs/file8.docx", "dst": "docs/file8.docx.locked"}
+{"seq": 19, "t_ms": 720, "pid": 4242, "op": "write", "path": "docs/file9.docx", "data": {"kind": "random", "size": 3000, "seed": 9}}
+{"seq": 20, "t_ms": 760, "pid": 4242, "op": "rename", "path": "docs/file9.docx", "dst": "docs/file9.docx.locked"}
+{"seq": 21, "t_ms": 800, "pid": 4242, "op": "write", "path": "docs/file10.docx", "data": {"kind": "random", "size": 3000, "seed": 10}}
+{"seq": 22, "t_ms": 840, "pid": 4242, "op": "rename", "path": "docs/file10.docx", "dst": "docs/file10.docx.locked"}
+{"seq": 23, "t_ms": 880, "pid": 4242, "op": "write", "path": "docs/file11.docx", "data": {"kind": "random", "size": 3000, "seed": 11}}
+{"seq": 24, "t_ms": 920, "pid": 4242, "op": "rename", "path": "docs/file11.docx", "dst": "docs/file11.docx.locked"}
+{"seq": 25, "t_ms": 960, "pid": 4242, "op": "write", "path": "docs/file12.docx", "data": {"kind": "random", "size": 3000, "seed": 12}}
+{"seq": 26, "t_ms": 1000, "pid": 4242, "op": "rename", "path": "docs/file12.docx", "dst": "docs/file12.docx.locked"}
+{"seq": 27, "t_ms": 1040, "pid": 4242, "op": "write", "path": "docs/file13.docx", "data": {"kind": "random", "size": 3000, "seed": 13}}
+{"seq": 28, "t_ms": 1080, "pid": 4242, "op": "rename", "path": "docs/file13.docx", "dst": "docs/file13.docx.locked"}
+{"seq": 29, "t_ms": 1120, "pid": 4242, "op": "write", "path": "docs/file14.docx", "data": {"kind": "random", "size": 3000, "seed": 14}}
+{"seq": 30, "t_ms": 1160, "pid": 4242, "op": "rename", "path": "docs/file14.docx", "dst": "docs/file14.docx.locked"}
+{"seq": 31, "t_ms": 1200, "pid": 4242, "op": "write", "path": "docs/file15.docx", "data": {"kind": "random", "size": 3000, "seed": 15}}
+{"seq": 32, "t_ms": 1240, "pid": 4242, "op": "rename", "path": "docs/file15.docx", "dst": "docs/file15.docx.locked"}
+{"seq": 33, "t_ms": 1280, "pid": 4242, "op": "write", "path": "docs/file16.docx", "data": {"kind": "random", "size": 3000, "seed": 16}}
+{"seq": 34, "t_ms": 1320, "pid": 4242, "op": "rename", "path": "docs/file16.docx", "dst": "docs/file16.docx.locked"}
+{"seq": 35, "t_ms": 1360, "pid": 4242, "op": "write", "path": "docs/file17.docx", "data": {"kind": "random", "size": 3000, "seed": 17}}
+{"seq": 36, "t_ms": 1400, "pid": 4242, "op": "rename", "path": "docs/file17.docx", "dst": "docs/file17.docx.locked"}
+{"seq": 37, "t_ms": 1440, "pid": 4242, "op": "write", "path": "docs/file18.docx", "data": {"kind": "random", "size": 3000, "seed": 18}}
+{"seq": 38, "t_ms": 1480, "pid": 4242, "op": "rename", "path": "docs/file18.docx", "dst": "docs/file18.docx.locked"}
+{"seq": 39, "t_ms": 1520, "pid": 4242, "op": "write", "path": "docs/file19.docx", "data": {"kind": "random", "size": 3000, "seed": 19}}
+{"seq": 40, "t_ms": 1560, "pid": 4242, "op": "rename", "path": "docs/file19.docx", "dst": "docs/file19.docx.locked"}
+{"seq": 41, "t_ms": 1600, "pid": 4242, "op": "write", "path": "docs/file20.docx", "data": {"kind": "random", "size": 3000, "seed": 20}}
+{"seq": 42, "t_ms": 1640, "pid": 4242, "op": "rename", "path": "docs/file20.docx", "dst": "docs/file20.docx.locked"}
+{"seq": 43, "t_ms": 1680, "pid": 4242, "op": "write", "path": "docs/file21.docx", "data": {"kind": "random", "size": 3000, "seed": 21}}
+{"seq": 44, "t_ms": 1720, "pid": 4242, "op": "rename", "path": "docs/file21.docx", "dst": "docs/file21.docx.locked"}
+{"seq": 45, "t_ms": 1760, "pid": 4242, "op": "write", "path": "docs/file22.docx", "data": {"kind": "random", "size": 3000, "seed": 22}}
+{"seq": 46, "t_ms": 1800, "pid": 4242, "op": "rename", "path": "docs/file22.docx", "dst": "docs/file22.docx.locked"}
+{"seq": 47, "t_ms": 1840, "pid": 4242, "op": "write", "path": "docs/file23.docx", "data": {"kind": "random", "size": 3000, "seed": 23}}
+{"seq": 48, "t_ms": 1880, "pid": 4242, "op": "rename", "path": "docs/file23.docx", "dst": "docs/file23.docx.locked"}
+{"seq": 49, "t_ms": 1920, "pid": 4242, "op": "write", "path": "docs/file24.docx", "data": {"kind": "random", "size": 3000, "seed": 24}}
+{"seq": 50, "t_ms": 1960, "pid": 4242, "op": "rename", "path": "docs/file24.docx", "dst": "docs/file24.docx.locked"}
+{"seq": 51, "t_ms": 2000, "pid": 4242, "op": "write", "path": "docs/file25.docx", "data": {"kind": "random", "size": 3000, "seed": 25}}
+{"seq": 52, "t_ms": 2040, "pid": 4242, "op": "rename", "path": "docs/file25.docx", "dst": "docs/file25.docx.locked"}
+{"seq": 53, "t_ms": 2080, "pid": 4242, "op": "write", "path": "docs/file26.docx", "data": {"kind": "random", "size": 3000, "seed": 26}}
+{"seq": 54, "t_ms": 2120, "pid": 4242, "op": "rename", "path": "docs/file26.docx", "dst": "docs/file26.docx.locked"}
+{"seq": 55, "t_ms": 2160, "pid": 4242, "op": "write", "path": "docs/file27.docx", "data": {"kind": "random", "size": 3000, "seed": 27}}
+{"seq": 56, "t_ms": 2200, "pid": 4242, "op": "rename", "path": "docs/file27.docx", "dst": "docs/file27.docx.locked"}
+{"seq": 57, "t_ms": 2240, "pid": 4242, "op": "write", "path": "docs/file28.docx", "data": {"kind": "random", "size": 3000, "seed": 28}}
+{"seq": 58, "t_ms": 2280, "pid": 4242, "op": "rename", "path": "docs/file28.docx", "dst": "docs/file28.docx.locked"}
+{"seq": 59, "t_ms": 2320, "pid": 4242, "op": "write", "path": "docs/file29.docx", "data": {"kind": "random", "size": 3000, "seed": 29}}
+{"seq": 60, "t_ms": 2360, "pid": 4242, "op": "rename", "path": "docs/file29.docx", "dst": "docs/file29.docx.locked"}
+{"seq": 61, "t_ms": 2400, "pid": 4242, "op": "write", "path": "docs/file30.docx", "data": {"kind": "random", "size": 3000, "seed": 30}}
+{"seq": 62, "t_ms": 2440, "pid": 4242, "op": "rename", "path": "docs/file30.docx", "dst": "docs/file30.docx.locked"}
+{"seq": 63, "t_ms": 2480, "pid": 4242, "op": "write", "path": "docs/file31.docx", "data": {"kind": "random", "size": 3000, "seed": 31}}
+{"seq": 64, "t_ms": 2520, "pid": 4242, "op": "rename", "path": "docs/file31.docx", "dst": "docs/file31.docx.locked"}
+{"seq": 65, "t_ms": 2560, "pid": 4242, "op": "write", "path": "docs/file32.docx", "data": {"kind": "random", "size": 3000, "seed": 32}}
+{"seq": 66, "t_ms": 2600, "pid": 4242, "op": "rename", "path": "docs/file32.docx", "dst": "docs/file32.docx.locked"}
+{"seq": 67, "t_ms": 2640, "pid": 4242, "op": "write", "path": "docs/file33.docx", "data": {"kind": "random", "size": 3000, "seed": 33}}
+{"seq": 68, "t_ms": 2680, "pid": 4242, "op": "rename", "path": "docs/file33.docx", "dst": "docs/file33.docx.locked"}
+{"seq": 69, "t_ms": 2720, "pid": 4242, "op": "write", "path": "docs/file34.docx", "data": {"kind": "random", "size": 3000, "seed": 34}}
+{"seq": 70, "t_ms": 2760, "pid": 4242, "op": "rename", "path": "docs/file34.docx", "dst": "docs/file34.docx.locked"}
+{"seq": 71, "t_ms": 2800, "pid": 4242, "op": "write", "path": "docs/file35.docx", "data": {"kind": "random", "size": 3000, "seed": 35}}
+{"seq": 72, "t_ms": 2840, "pid": 4242, "op": "rename", "path": "docs/file35.docx", "dst": "docs/file35.docx.locked"}
+{"seq": 73, "t_ms": 2880, "pid": 4242, "op": "write", "path": "docs/file36.docx", "data": {"kind": "random", "size": 3000, "seed": 36}}
+{"seq": 74, "t_ms": 2920, "pid": 4242, "op": "rename", "path": "docs/file36.docx", "dst": "docs/file36.docx.locked"}
+{"seq": 75, "t_ms": 2960, "pid": 4242, "op": "write", "path": "docs/file37.docx", "data": {"kind": "random", "size": 3000, "seed": 37}}
+{"seq": 76, "t_ms": 3000, "pid": 4242, "op": "rename", "path": "docs/file37.docx", "dst": "docs/file37.docx.locked"}
+{"seq": 77, "t_ms": 3040, "pid": 4242, "op": "write", "path": "docs/file38.docx", "data": {"kind": "random", "size": 3000, "seed": 38}}
+{"seq": 78, "t_ms": 3080, "pid": 4242, "op": "rename", "path": "docs/file38.docx", "dst": "docs/file38.docx.locked"}
+{"seq": 79, "t_ms": 3120, "pid": 4242, "op": "write", "path": "docs/file39.docx", "data": {"kind": "random", "size": 3000, "seed": 39}}
+{"seq": 80, "t_ms": 3160, "pid": 4242, "op": "rename", "path": "docs/file39.docx", "dst": "docs/file39.docx.locked"}

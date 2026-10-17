@@ -2,6 +2,10 @@
 
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
+## 0.8.4 - 2026-10-17
+- Windows client M0: sensor interface v1 (`halvard/sensor.py`: event format, `replay`, `check_budget`), four deterministic event fixtures in `tests/fixtures/sensor/` (ransomware, tripwire first touch, office session, compressor; regenerate with `tools/gen_sensor_fixtures.py`), 11 new tests (515 total), and native-service targets in `policy/perf_budget.json` (`windows_native_service`).
+- A native sensor passes M0 when its recordings of these scenarios replay to the same allow/deny answers.
+
 ## 0.8.3 - 2026-10-17
 - Docs: `docs/25-windows-client-plan.md`: resident Windows client plan (budgets, Rust service, staged sensor: ETW+tripwires then minifilter, installer, signing, milestones). Design only; nothing built.
 
