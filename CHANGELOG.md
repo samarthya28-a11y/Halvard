@@ -2,6 +2,13 @@
 
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
+## 0.8.5 - 2026-10-17
+- Windows client M1 (Stage A prototype), `native/halvard-svc` (Rust, GNU toolchain for now): tripwire brain mirroring `WardAgent.tripwire_gate`, fixture replay (same JSONL as Python), ReadDirectoryChangesW watcher (blocking, no polling), NtSuspendProcess/NtResumeProcess freeze and thaw.
+- 9 Rust tests: conformance with the Python fixtures (tripwire first touch denied at event 1; office and compressor never blocked), real process freeze/thaw, protected pids refused, watcher latency under 500 ms.
+- Measured (release): 0.31 MB binary, 3.5 MB RAM, 0.000% CPU idle over 10 s, tripwire alert about 1 ms after the write. Budget targets: 30 MB, 0.5% CPU, so far under.
+- Not done: attribution of a write to a process (needs ETW, M1b), so the watcher alerts but cannot yet freeze the offender; the bulk-encryption detector (M2); service wrapper, installer, signing. Toolchain is GNU; switch to MSVC (needs Visual Studio Build Tools) before production.
+- Run: `cd native/halvard-svc; cargo test; cargo build --release`.
+
 ## 0.8.4 - 2026-10-17
 - Windows client M0: sensor interface v1 (`halvard/sensor.py`: event format, `replay`, `check_budget`), four deterministic event fixtures in `tests/fixtures/sensor/` (ransomware, tripwire first touch, office session, compressor; regenerate with `tools/gen_sensor_fixtures.py`), 11 new tests (515 total), and native-service targets in `policy/perf_budget.json` (`windows_native_service`).
 - A native sensor passes M0 when its recordings of these scenarios replay to the same allow/deny answers.

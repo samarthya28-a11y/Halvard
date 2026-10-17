@@ -1,6 +1,6 @@
 # Halvard handoff (update after every major change)
 
-Version: 0.8.4 (see CHANGELOG.md). Branch: main. Python 3.11+, stdlib only.
+Version: 0.8.5 (see CHANGELOG.md). Branch: main. Python 3.11+, stdlib only.
 
 ## State
 - Reference build, Phases 1-8. Tests: `python -W ignore -m unittest discover -s tests` -> 515 OK, 3 skipped on Windows.
@@ -13,7 +13,7 @@ Version: 0.8.4 (see CHANGELOG.md). Branch: main. Python 3.11+, stdlib only.
 - Next for a real light client: native Windows sensor (ReadDirectoryChangesW + process events), run as a service, MSI/winget installer, code signing, onedir build to avoid the ~1 s startup extraction.
 
 ## Windows client
-- Plan and sensor design in docs/25-windows-client-plan.md (awaiting owner decisions: Rust vs C++, Stage A first, signing owner). Decisions taken: Rust service, Stage A first. M0 DONE (halvard/sensor.py, tests/fixtures/sensor, tests/test_sensor_conformance.py). Next: M1 = Stage A prototype (ETW + tripwires, suspend on first touch, service). Needs a Rust toolchain on the PC (check `rustc --version`).
+- Plan and sensor design in docs/25-windows-client-plan.md (awaiting owner decisions: Rust vs C++, Stage A first, signing owner). Decisions taken: Rust service, Stage A first. M0 DONE (halvard/sensor.py, tests/fixtures/sensor, tests/test_sensor_conformance.py). M1 partly DONE: native/halvard-svc (Rust, cargo at ~/.cargo/bin; add to PATH). Next: M1b = ETW Microsoft-Windows-Kernel-File session for pid attribution (needs admin), then wire watcher -> brain -> suspend; then Windows service wrapper (windows-service crate). Then M2 port detector/journal. Switch to MSVC toolchain before production.
 
 ## Open / pending
 - docs/07 and docs/11 were overwritten by a Windows acceptance run; revert with `git checkout -- docs/07-phase1-evidence.md docs/11-phase3-evidence.md` (user approval pending).

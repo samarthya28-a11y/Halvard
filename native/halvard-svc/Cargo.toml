@@ -1,0 +1,21 @@
+[package]
+name = "halvard-svc"
+version = "0.1.0"
+edition = "2021"
+description = "Halvard native Windows service, Stage A prototype (tripwires first). See docs/25-windows-client-plan.md"
+
+[dependencies]
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_IO",
+  "Win32_System_Threading", "Win32_System_LibraryLoader", "Win32_Security",
+] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
