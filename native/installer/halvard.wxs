@@ -5,7 +5,7 @@
   Remove:   msiexec /x halvard-<ver>-x64.msi /qn
   TRIPWIREDIRS (optional, semicolon list): folders that get decoy files. Empty = every user's Documents folder.
 -->
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package Name="Halvard Guard" Manufacturer="Halvard" Version="$(Version)" UpgradeCode="6B2F3C5E-8A14-4D5B-9E71-3F0C2A9D4B18"
            Scope="perMachine" Compressed="yes" InstallerVersion="500">
     <SummaryInformation Description="Halvard Guard: stops file-encrypting programs the moment they touch a tripwire file." />
@@ -13,6 +13,10 @@
     <MediaTemplate EmbedCab="yes" />
 
     <Property Id="TRIPWIREDIRS" Secure="yes" />
+
+    <!-- the wizard: license + Install, progress, finish. Silent installs (/qn) skip it entirely. -->
+    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+    <ui:WixUI Id="WixUI_Minimal" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="Halvard">

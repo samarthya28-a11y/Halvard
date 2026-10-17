@@ -2,6 +2,10 @@
 
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
+## 0.8.15 - 2026-10-17
+- Installer wizard: WixUI_Minimal (license acceptance, Install, progress, finish) via the WiX UI extension 5.0.2; `native/installer/license.rtf` is a placeholder evaluation notice (replace with the real agreement before distributing). Silent installs (`/qn`) are unchanged and skip the wizard. MSI is 0.92 MB. Verified by decompiling the package (WelcomeEulaDlg, ProgressDlg, ExitDialog, MaintenanceTypeDlg and the rest are present); not yet seen on screen.
+- Repo hygiene: a separate clone of the repository (folder `halvard`, at 0.8.0) sits inside the project folder; it is now git-ignored (`/halvard/`) so it can never be committed as an embedded repository. Not deleted.
+
 ## 0.8.14 - 2026-10-17
 - Owner double-clicked the 0.8.13 MSI: it DID install (service running, decoys placed) but showed no window, so "nothing happened". The MSI has no wizard UI yet (adding one needs the WiX UI extension; pending approval).
 - Bug found by that real install and fixed: with no folders given, `configure` enumerated every folder under the Users directory and placed decoys in service-account profiles (`.NET v4.5`, `DefaultAppPool`). Now reads the Windows profile list and only uses real people (`S-1-5-21-*` local/domain, `S-1-12-1-*` Azure AD): `is_user_sid`, `parse_profile_path`. 30 Rust tests pass (3 new, one runs against this machine).
