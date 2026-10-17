@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 340" role="img" aria-labelledby="t d">
+  <title id="t">Halvard</title>
+  <desc id="d">Gold blade-shield mark with the name HALVARD and the tagline Hold the line.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b0b0e"/><stop offset="1" stop-color="#1a1206"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1b0"/><stop offset=".35" stop-color="#ffc926"/><stop offset=".7" stop-color="#d98a00"/><stop offset="1" stop-color="#8a4b00"/></linearGradient>
+    <linearGradient id="goldH" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe680"/><stop offset="1" stop-color="#e59400"/></linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffb300" stop-opacity=".5"/><stop offset="1" stop-color="#ffb300" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1280" height="340" rx="24" fill="url(#bg)"/>
+  <g transform="translate(24 10) scale(.62)">
+    <circle cx="256" cy="262" r="250" fill="url(#glow)"/>
+    <path d="M40 120 L150 150 L120 190 L170 210 L130 250 L176 270 L150 300 L100 270 L70 210 Z" fill="url(#gold)"/>
+    <path d="M472 120 L362 150 L392 190 L342 210 L382 250 L336 270 L362 300 L412 270 L442 210 Z" fill="url(#gold)"/>
+    <path d="M256 20 L400 70 L392 270 L256 494 L120 270 L112 70 Z" fill="url(#gold)"/>
+    <path d="M256 54 L370 92 L364 262 L256 440 L148 262 L142 92 Z" fill="#0a0a0c"/>
+    <path d="M256 54 L292 120 L256 104 L220 120 Z" fill="url(#goldH)"/>
+    <path d="M186 140 L226 140 L226 230 L286 230 L286 140 L326 140 L326 360 L286 360 L286 272 L226 272 L226 380 L186 360 Z" fill="url(#goldH)"/>
+    <path d="M170 300 L342 226 L342 244 L170 318 Z" fill="#0a0a0c"/>
+    <path d="M176 306 L336 237" stroke="#fff1b0" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <text x="372" y="198" font-family="Impact, 'Arial Black', 'Segoe UI', sans-serif" font-size="150" font-weight="900" letter-spacing="10" fill="url(#gold)" transform="skewX(-8) translate(30 0)">HALVARD</text>
+  <path d="M376 222 L1180 222 L1164 232 L376 232 Z" fill="#ffb300"/>
+  <text x="380" y="284" font-family="'Segoe UI', Arial, sans-serif" font-size="34" font-weight="700" letter-spacing="8" fill="#ffd966">HOLD THE LINE  ·  CORPORATE ASSURANCE FABRIC</text>
+</svg>

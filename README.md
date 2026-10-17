@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/logo/halvard-logo.svg" alt="Halvard: Corporate Assurance Fabric" width="560"></p>
+<p align="center"><img src="assets/logo/halvard-logo-v2.svg" alt="Halvard: Corporate Assurance Fabric" width="560"></p>
 
 # Halvard: Corporate Assurance Fabric (reference build, Phases 1 to 8)
 

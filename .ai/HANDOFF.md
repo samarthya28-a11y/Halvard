@@ -1,0 +1,20 @@
+# Halvard handoff (update after every major change)
+
+Version: 0.8.1 (see CHANGELOG.md). Branch: main. Python 3.11+, stdlib only.
+
+## State
+- Reference build, Phases 1-8. Tests: `python -W ignore -m unittest discover -s tests` -> 504 OK, 3 skipped on Windows.
+- Stories: `$env:PYTHONPATH="src"; python -m halvard.cli <setup|demo|stolen-session|mailed-attachment|exposed-bucket|data-leak|patch-day|ai-agent|tripwires|platform|rogue-device>` all pass.
+- Logo v2 (gold, aggressive) added, README points to it. Old logo kept.
+- Strategy doc: docs/24-strategy-and-market.md (name meaning, backronym, deployment, licensing, pricing, competitor research).
+
+## Open / pending
+- docs/07 and docs/11 were overwritten by a Windows acceptance run; revert with `git checkout -- docs/07-phase1-evidence.md docs/11-phase3-evidence.md` (user approval pending).
+- Nothing committed yet for this session's changes.
+- Decisions needed from user: backronym, pricing model, first go-to-market segment (see doc 24 section 6).
+
+## Ground rules from user
+1. Update this file after every major change. 2. Version every change (CHANGELOG, __version__). 3. Keep advising on deployment, licensing, commercials, cloud vs on-prem. 4. Keep researching competitors and recommend unique features.
+
+## Do not
+Run tools/run_acceptance*.py on Windows. Treat competitor pricing in doc 24 as indicative.
