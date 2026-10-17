@@ -2,6 +2,11 @@
 
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
+## 0.8.16 - 2026-10-17
+- ETW delete and rename detection no longer relies on guessed property names: the guard asks Windows (TDH) which string properties the event has and judges every path-looking value (old and new name of a rename). `guard --debug` prints the real contents of delete, rename and new-file events (first 300) so the layout can be confirmed from a real run.
+- `tools/etw_smoke.ps1` now runs three fake attackers at once (overwrite, delete, rename, each on its own decoy) and saves the guard's output with the debug dump. **NOT yet run live** (needs Administrator): run it and send `C:\Users\ASUS\halvard-etw-smoke.txt`. Delete and rename detection stay "unverified" until it passes.
+- 30 Rust tests pass.
+
 ## 0.8.15 - 2026-10-17
 - Installer wizard: WixUI_Minimal (license acceptance, Install, progress, finish) via the WiX UI extension 5.0.2; `native/installer/license.rtf` is a placeholder evaluation notice (replace with the real agreement before distributing). Silent installs (`/qn`) are unchanged and skip the wizard. MSI is 0.92 MB. Verified by decompiling the package (WelcomeEulaDlg, ProgressDlg, ExitDialog, MaintenanceTypeDlg and the rest are present); not yet seen on screen.
 - Repo hygiene: a separate clone of the repository (folder `halvard`, at 0.8.0) sits inside the project folder; it is now git-ignored (`/halvard/`) so it can never be committed as an embedded repository. Not deleted.

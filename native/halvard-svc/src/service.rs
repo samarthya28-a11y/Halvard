@@ -319,7 +319,7 @@ fn service_main(_args: Vec<OsString>) {
         }
     };
     report(&h, ServiceState::StartPending, ServiceControlAccept::empty(), 0);
-    let worker = std::thread::spawn(move || crate::etw::run(cfg.tripwires, cfg.trust));
+    let worker = std::thread::spawn(move || crate::etw::run(cfg.tripwires, cfg.trust, false));
     // Running only once the trace is really up: give it a moment, and report failure if the worker already ended.
     std::thread::sleep(Duration::from_millis(1500));
     if worker.is_finished() {

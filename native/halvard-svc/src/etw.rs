@@ -7,6 +7,7 @@ use crate::suspend;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ptr::{null, null_mut};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Mutex;
 use std::time::Instant;
 use windows_sys::core::GUID;
@@ -106,10 +107,77 @@ unsafe fn prop_str(rec: *const EVENT_RECORD, names: &[&str]) -> Option<String> {
     None
 }
 
+
+/// Names of every top-level string property this event type has, asked from Windows (TDH) instead of guessed.
+unsafe fn string_property_names(rec: *const EVENT_RECORD) -> Vec<String> {
+    let mut size = 0u32;
+    TdhGetEventInformation(rec, 0, null(), null_mut(), &mut size);
+    if size == 0 || size > 1 << 20 {
+        return Vec::new();
+    }
+    let mut buf = vec![0u64; (size as usize + 7) / 8];
+    let info = buf.as_mut_ptr() as *mut TRACE_EVENT_INFO;
+    if TdhGetEventInformation(rec, 0, null(), info, &mut size) != ERROR_SUCCESS {
+        return Vec::new();
+    }
+    let base = buf.as_ptr() as *const u8;
+    let n = (*info).TopLevelPropertyCount as usize;
+    let arr = (*info).EventPropertyInfoArray.as_ptr();
+    let mut out = Vec::new();
+    for i in 0..n {
+        let p = &*arr.add(i);
+        if p.Flags & PropertyStruct != 0 {
+            continue;
+        }
+        let in_type = p.Anonymous1.nonStructType.InType as i32;
+        if in_type != TDH_INTYPE_UNICODESTRING && in_type != TDH_INTYPE_ANSISTRING {
+            continue;
+        }
+        let name_ptr = base.add(p.NameOffset as usize) as *const u16;
+        let mut len = 0usize;
+        while *name_ptr.add(len) != 0 && len < 128 {
+            len += 1;
+        }
+        out.push(String::from_utf16_lossy(std::slice::from_raw_parts(name_ptr, len)));
+    }
+    out
+}
+
+/// Every string value of the event that looks like a path (delete and rename events name the file under different property names on different Windows builds).
+unsafe fn path_values(rec: *const EVENT_RECORD) -> Vec<String> {
+    let mut v = Vec::new();
+    for name in string_property_names(rec) {
+        if let Some(b) = prop_bytes(rec, &name) {
+            let u: Vec<u16> = b.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).take_while(|&c| c != 0).collect();
+            let text = String::from_utf16_lossy(&u);
+            if text.contains('\\') {
+                v.push(text);
+            }
+        }
+    }
+    v
+}
+
+static DEBUG: AtomicBool = AtomicBool::new(false);
+static DEBUG_SEEN: AtomicU32 = AtomicU32::new(0);
+
+/// `guard --debug`: print what delete/rename/new-file events really contain, so property names can be confirmed from a real run.
+unsafe fn debug_dump(rec: *const EVENT_RECORD, id: u16, pid: u32) {
+    if !DEBUG.load(Ordering::Relaxed) || DEBUG_SEEN.fetch_add(1, Ordering::Relaxed) > 300 {
+        return;
+    }
+    let props: Vec<String> = string_property_names(rec).iter().map(|n| format!("{n}={:?}", prop_str(rec, &[n.as_str()]).unwrap_or_default())).collect();
+    crate::logsink::emit(&format!("{{\"debug\":{{\"event\":{id},\"pid\":{pid},\"properties\":{:?}}}}}", props));
+}
+
 unsafe extern "system" fn on_record(rec: *mut EVENT_RECORD) {
     let r = &*rec;
     let id = r.EventHeader.EventDescriptor.Id;
     let pid = r.EventHeader.ProcessId;
+    if matches!(id, 26 | 27 | 30) {
+        debug_dump(rec, id, pid);
+    }
+    let mut extra: Vec<FileEvent> = Vec::new();
     let ev = match id {
         12 => match (prop_u64(rec, "FileObject"), prop_str(rec, &["FileName"])) {
             (Some(obj), Some(name)) => Some(FileEvent::Open { pid, obj, name }),
@@ -120,8 +188,13 @@ unsafe extern "system" fn on_record(rec: *mut EVENT_RECORD) {
             _ => None,
         },
         16 => prop_u64(rec, "FileObject").map(|obj| FileEvent::Write { pid, obj }),
-        26 => prop_str(rec, &["FileName", "FilePath"]).map(|name| FileEvent::Delete { pid, name }),
-        27 => prop_str(rec, &["FileName", "FilePath"]).map(|name| FileEvent::Rename { pid, name }),
+        26 | 27 => {
+            // every path-looking string in the event (old and new name for a rename), whatever Windows calls the property
+            let mut it = path_values(rec).into_iter().map(|name| if id == 26 { FileEvent::Delete { pid, name } } else { FileEvent::Rename { pid, name } });
+            let first = it.next();
+            extra.extend(it);
+            first
+        }
         _ => return,
     };
     let Ok(mut g) = STATE.lock() else { return };
@@ -131,7 +204,8 @@ unsafe extern "system" fn on_record(rec: *mut EVENT_RECORD) {
         st.unreadable += 1;
         return;
     };
-    if let Some(f) = st.guard.on_event(ev) {
+    let frozen_now = std::iter::once(ev).chain(extra).filter_map(|e| st.guard.on_event(e)).next();
+    if let Some(f) = frozen_now {
         let frozen = suspend::suspend(f.pid);
         crate::logsink::emit(&format!(
             "{{\"alert\":\"tripwire\",\"pid\":{},\"process\":{:?},\"path\":{:?},\"op\":\"{:?}\",\"frozen\":{},\"error\":{:?},\"t_ms\":{}}}",
@@ -141,7 +215,8 @@ unsafe extern "system" fn on_record(rec: *mut EVENT_RECORD) {
 }
 
 /// Runs until Ctrl+C. Errors are plain sentences, including the elevation hint.
-pub fn run(tripwires: Vec<String>, trust: Vec<String>) -> Result<(), String> {
+pub fn run(tripwires: Vec<String>, trust: Vec<String>, debug: bool) -> Result<(), String> {
+    DEBUG.store(debug, Ordering::Relaxed);
     *STATE.lock().unwrap() = Some(State {
         guard: Guard::new(&tripwires, &trust, std::process::id(), Box::new({
             let cache: Mutex<HashMap<u32, String>> = Mutex::new(HashMap::new());

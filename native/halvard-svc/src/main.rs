@@ -3,7 +3,7 @@ use std::path::Path;
 
 fn usage() {
     println!("halvard-svc {}\nUsage:\n  halvard-svc --version\n  halvard-svc replay <fixture.jsonl>\n  halvard-svc watch <folder> <tripwire-file-name>...   (alert only, no admin needed)
-  halvard-svc guard <tripwire-full-path>... [--trust name.exe]   (ETW, needs Administrator; freezes the offender)
+  halvard-svc guard <tripwire-full-path>... [--trust name.exe] [--debug]   (ETW, needs Administrator; freezes the offender; --debug dumps delete/rename event contents)
   halvard-svc stop   (stop a stale ETW session)
   halvard-svc service install --tripwire <full path>... [--trust name.exe]   (Administrator)
   halvard-svc service uninstall|start|stop   (Administrator)   |   service status (no admin)", halvard_svc::VERSION);
@@ -96,10 +96,12 @@ fn main() {
         }
         #[cfg(windows)]
         Some("guard") if args.len() >= 2 => {
-            let (mut tws, mut trust) = (Vec::new(), Vec::new());
+            let (mut tws, mut trust, mut debug) = (Vec::new(), Vec::new(), false);
             let mut it = args[1..].iter();
             while let Some(a) = it.next() {
-                if a == "--trust" {
+                if a == "--debug" {
+                    debug = true;
+                } else if a == "--trust" {
                     if let Some(n) = it.next() {
                         trust.push(n.clone());
                     }
@@ -107,7 +109,7 @@ fn main() {
                     tws.push(a.clone());
                 }
             }
-            if let Err(e) = halvard_svc::etw::run(tws, trust) {
+            if let Err(e) = halvard_svc::etw::run(tws, trust, debug) {
                 eprintln!("guard failed: {e}");
                 std::process::exit(1);
             }
