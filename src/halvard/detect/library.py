@@ -14,8 +14,9 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
 from ..hunt import ql
+from ..paths import policy_dir
 
-ATTACK = json.loads((Path(__file__).resolve().parents[3] / "policy" / "attack_techniques.json").read_text(encoding="utf-8"))
+ATTACK = json.loads((policy_dir() / "attack_techniques.json").read_text(encoding="utf-8"))
 SEVERITIES = ("low", "medium", "high", "critical")
 MAX_EXPIRY_DAYS = 180
 AUTHOR_ROLES = {"analyst", "it_admin"}

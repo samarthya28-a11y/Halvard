@@ -1,5 +1,8 @@
 """Command line for the reference build: `python -m halvard.cli <demo|setup|perf>`."""
 import json, os, sys, tempfile
+for _s in (sys.stdout, sys.stderr):      # a default Windows console (cp1252) cannot print the symbols the stories use
+    try: _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception: pass
 if sys.platform == "win32":      # the Windows profile does not journal AppData\Local (where the default temp folder is); demos need an ordinary documents-style folder
     _w = os.path.join(os.path.expanduser("~"), "halvard-work"); os.makedirs(_w, exist_ok=True); tempfile.tempdir = _w
 
@@ -281,5 +284,9 @@ def platform():
     print("  ledgers intact:", {t: r.cp.ledger.verify()[0] for t, r in P.tenants.items()})
 
 
-if __name__ == "__main__":
+def main():
     {"demo": demo, "setup": setup, "perf": perf, "stolen-session": stolen_session, "mailed-attachment": mailed_attachment, "exposed-bucket": exposed_bucket, "data-leak": data_leak, "patch-day": patch_day, "ai-agent": ai_agent, "tripwires": tripwires, "rogue-device": rogue_device, "platform": platform}.get(sys.argv[1] if len(sys.argv) > 1 else "", lambda: print(__doc__))()
+
+
+if __name__ == "__main__":
+    main()

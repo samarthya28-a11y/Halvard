@@ -3,6 +3,7 @@ with Signet handlers, the fleet that reaches devices, and the optional automatic
 there is no network service here yet (see docs/10)."""
 import os
 from pathlib import Path
+from .paths import policy_dir
 
 from .cases import CaseEngine, CaseFinding, ward_hit_to_finding
 from .detect.library import ATTACK  # noqa: F401  (technique list is validated where findings are produced)
@@ -75,13 +76,13 @@ class ControlPlane:
         self.vault = VaultlineService(self.store, self.ctx, clock, self.aws, self.mail, [f"{tenant}.com"], partner_domains, audit=self.ledger, atlas=self.atlas)
         a.aws, a.atlas, a.vault = self.aws, self.atlas, self.vault
         self.internet = ReferenceInternet(clock)
-        feed = VulnFeed.load(Path(__file__).resolve().parents[2] / "policy" / "advisories_sample.json") if (Path(__file__).resolve().parents[2] / "policy" / "advisories_sample.json").exists() else VulnFeed()
+        feed = VulnFeed.load(policy_dir() / "advisories_sample.json") if (policy_dir() / "advisories_sample.json").exists() else VulnFeed()
         self.surface = ExternalSurface(self.internet, clock, self.ledger, lambda: {i.public_ip for i in self.aws.instances.values() if i.public_ip}, feed)
         self.glass = GlassService(self.store, self.ctx, clock, self.ledger, feed, self.aws, self.atlas, self.fleet, self.engine, surface=self.surface, signet=self.signet)
         self.glass.pusher = self.push_blocked; a.glass = self.glass
         self.coverage = CoverageMonitor(self.store, self.ctx, clock, self.ledger); self.evidence = ControlEvidence(self.ledger, self.fleet, clock)
         self.board = Board(self.glass, self.coverage, self.evidence, self.ledger, clock, self.fleet, store=self.store, ctx=self.ctx)
-        root = Path(__file__).resolve().parents[2] / "policy"
+        root = policy_dir()
         self.lumen = LumenService(self.store, self.ctx, clock, self.ledger, self.idp, self.aws, self.signet, root / "ai_tools_sample.json", internal_domains=[f"{tenant}.com"])
         self.fileserver, self.canary = ReferenceFileServer(clock), CanaryService(clock)
         self.hearth = HearthService(self.store, self.ctx, clock, self.ledger, self.fleet, self.idp, self.ad, self.aws, self.fileserver, self.canary, self.push_tripwires, atlas=self.atlas)

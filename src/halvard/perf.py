@@ -1,8 +1,9 @@
 """Agent performance test (F127): runs a deterministic workday trace and checks it against policy/perf_budget.json."""
 import json, os, random, shutil, statistics, tempfile, time, tracemalloc
 from pathlib import Path
+from .paths import policy_dir
 
-BUDGET = json.loads((Path(__file__).resolve().parents[2] / "policy" / "perf_budget.json").read_text(encoding="utf-8"))
+BUDGET = json.loads((policy_dir() / "perf_budget.json").read_text(encoding="utf-8"))
 
 
 def _trace(n, rnd):

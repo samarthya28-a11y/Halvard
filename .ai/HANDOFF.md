@@ -1,6 +1,6 @@
 # Halvard handoff (update after every major change)
 
-Version: 0.8.1 (see CHANGELOG.md). Branch: main. Python 3.11+, stdlib only.
+Version: 0.8.2 (see CHANGELOG.md). Branch: main. Python 3.11+, stdlib only.
 
 ## State
 - Reference build, Phases 1-8. Tests: `python -W ignore -m unittest discover -s tests` -> 504 OK, 3 skipped on Windows.
@@ -8,9 +8,12 @@ Version: 0.8.1 (see CHANGELOG.md). Branch: main. Python 3.11+, stdlib only.
 - Logo v2 (gold, aggressive) added, README points to it. Old logo kept.
 - Strategy doc: docs/24-strategy-and-market.md (name meaning, backronym, deployment, licensing, pricing, competitor research).
 
+## Exe
+- `powershell -File tools/build_exe.ps1` -> dist/halvard.exe (10.7 MB, ~30 MB RAM). dist/ and build/ are gitignored.
+- Next for a real light client: native Windows sensor (ReadDirectoryChangesW + process events), run as a service, MSI/winget installer, code signing, onedir build to avoid the ~1 s startup extraction.
+
 ## Open / pending
 - docs/07 and docs/11 were overwritten by a Windows acceptance run; revert with `git checkout -- docs/07-phase1-evidence.md docs/11-phase3-evidence.md` (user approval pending).
-- Nothing committed yet for this session's changes.
 - Decisions needed from user: backronym, pricing model, first go-to-market segment (see doc 24 section 6).
 
 ## Ground rules from user
