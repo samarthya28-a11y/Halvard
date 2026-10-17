@@ -4,6 +4,7 @@ Version 0.9.0 (see CHANGELOG.md for the full history). Branch main, local commit
 
 ## Ground rules from the owner
 1. Update this file after every major change. 2. Version every change (`src/halvard/__init__.py` + `CHANGELOG.md`, git tag `vX.Y.Z`). 3. Keep advising on deployment, licensing, commercials, cloud vs on-prem (docs/24). 4. Keep researching competitors and recommend unique features.
+5. **Every local commit and tag is pushed to GitHub immediately** (`git push origin main --tags`; a `.git/hooks/post-commit` hook pushes commits automatically, tags need the explicit push; `push.followTags` is on). Standing authorization from the owner. Scan the diff for secrets and large files first. Reason: Cursor reviewed GitHub's stale copy and could not see the Windows work.
 Do NOT run `tools/run_acceptance*.py` on Windows (overwrites evidence docs with reduced output). Competitor prices in docs/24 are indicative only. A folder `halvard/` in the repo root is a separate clone (git-ignored): leave it.
 
 ## What exists and its proof level
