@@ -23,7 +23,7 @@ class PolicyBundle:
     mgmt_endpoints: list = field(default_factory=lambda: ["mgmt.halvard.example"])
     accepted_patterns: list = field(default_factory=list)
     overrides: dict = field(default_factory=dict)
-    trusted_writers: list = field(default_factory=list)      # process names exempt from journaling (backup agents etc.)
+    trusted_writers: list = field(default_factory=list)      # publisher + image hash; a bare name matches only when the process has no image hash
     journal_quota_mb: int = 2048
     # Paths whose pre-images are not journaled (caches, temp files, logs, app databases). They are still observed
     # by the detector. Ransomware targets documents, so the journal spends its quota on user work.
@@ -31,8 +31,8 @@ class PolicyBundle:
     platform: str = "windows"
     dlp: dict = field(default_factory=dict)       # data protection: inspection gate, rules, USB approvals, partner and SaaS lists (see vaultline/)
     tripwires: list = field(default_factory=list)       # [{id, path, kind: encryption|decoy_file|credential_lure, lure_text?}] placed by Hearth; see hearth/
-    tripwire_exempt: list = field(default_factory=list)  # process names (backup, antivirus, indexers) whose reads and writes of tripwires are expected
-    blocked_apps: list = field(default_factory=list)   # temporary protections: program names this device will not start (see glass/)
+    tripwire_exempt: list = field(default_factory=list)  # publisher + image hash; a bare name matches only when the process has no image hash
+    blocked_apps: list = field(default_factory=list)   # publisher + image hash, or a name-only Glass stand-in when no hash is known yet
     learned_exceptions: list = field(default_factory=list)   # active entries from the console's learning store (device enforces expiry)
     retention_days_after_uninstall: int = 30
     asset_class: str = "standard"

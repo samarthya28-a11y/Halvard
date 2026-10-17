@@ -23,6 +23,7 @@ from ..vaultline.classifiers import Classifier
 from ..vaultline.inspection import Inspector, InspectionPolicy, InspectionNotAllowed
 from ..vaultline import dlp as dlpmod
 from .verdict import VerdictEngine
+from .identity import allows, blocks
 
 SYSTEM = Principal("halvard:auto", "system")
 
@@ -182,8 +183,9 @@ class WardAgent:
                     tw = self.tripwires.get(k2) if k2 else None
                 except OSError: tw = None
             if not tw: continue
-            proc = (self.host.proc(pid) or {}).get("name")
-            if self._trusted(pid) or proc in self.bundle.tripwire_exempt:
+            info = self.host.proc(pid) or {}
+            proc = info.get("name")
+            if allows(self.bundle.trusted_writers, name=proc, publisher=info.get("publisher"), image_hash=info.get("exe_sha256")) or allows(self.bundle.tripwire_exempt, name=proc, publisher=info.get("publisher"), image_hash=info.get("exe_sha256")):
                 self.spool.append("ward.tripwire_exempt", "system", "system", self.device_id, {"tripwire": tw["id"], "op": op, "process": proc}, controls=("HEARTH.TRIPWIRES",)); continue
             modifying = op in ("write", "rename", "delete", "create")
             conf = 0.9 if (modifying or tw["kind"] != "encryption") else 0.3          # reading an encryption tripwire is what indexers and backups do
@@ -333,10 +335,11 @@ class WardAgent:
         batch = list(self.outbox); n = events.add(ctx, batch); self.outbox.clear(); return n
 
     # ---- pre-execution (F006) ----
-    def pre_execute(self, path, data: bytes, pid=0):
+    def pre_execute(self, path, data: bytes, pid=0, publisher=None):
         stem = os.path.splitext(os.path.basename(path))[0].lower()
+        image = hashlib.sha256(data).hexdigest()
         for b in self.bundle.blocked_apps:
-            if b["app"].lower() == stem:
+            if blocks(b, name=stem, publisher=publisher, image_hash=image):
                 self.spool.append("ward.exec_blocked_by_temporary_protection", "system", "system", self.device_id, {"app": stem, "why": b.get("why", ""), "control": b.get("control")},
                                   controls=("GLASS.COMPENSATING_CONTROL",) + (("WARD.OFFLINE_PREVENTION",) if not self.online else ()))
                 raise Blocked(f"{stem} is switched off on this device for now: {b.get('why', 'a temporary protection is in place')}. Ask IT if you need it.")
@@ -355,8 +358,8 @@ class WardAgent:
 
     # ---- bulk-encryption prevention ----
     def _trusted(self, pid):
-        p = self.host.proc(pid)
-        return bool(p and p["name"] in self.bundle.trusted_writers)
+        p = self.host.proc(pid) or {}
+        return allows(self.bundle.trusted_writers, name=p.get("name"), publisher=p.get("publisher"), image_hash=p.get("exe_sha256"))
 
     def handle_verdict(self, v, defer=None):
         """Decide and freeze synchronously; run the response now, or via `defer(callable)` when a sensor must keep draining events."""

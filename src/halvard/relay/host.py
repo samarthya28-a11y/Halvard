@@ -23,9 +23,9 @@ class SimHost:
         self.update_defects = {} # (product, version) -> services that version breaks; a stand-in for a bad update
 
     # processes
-    def spawn(self, pid, name, user="user1", exe_sha256=None, cmdline=None, ppid=None):
+    def spawn(self, pid, name, user="user1", exe_sha256=None, cmdline=None, ppid=None, publisher=None):
         self._starts = getattr(self, "_starts", 0) + 1
-        self.procs[pid] = {"name": name, "user": user, "state": "running", "exe_sha256": exe_sha256, "cmdline": cmdline, "ppid": ppid, "started": self._starts}
+        self.procs[pid] = {"name": name, "user": user, "state": "running", "exe_sha256": exe_sha256, "cmdline": cmdline, "ppid": ppid, "started": self._starts, "publisher": publisher}
 
     def suspend(self, pid):
         if pid in self.procs: self.procs[pid]["state"] = "suspended"

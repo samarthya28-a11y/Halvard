@@ -1,6 +1,6 @@
 [package]
 name = "halvard-svc"
-version = "0.10.4"
+version = "0.10.5"
 edition = "2021"
 description = "Halvard native Windows service, Stage A prototype (tripwires first). See docs/25-windows-client-plan.md"
 

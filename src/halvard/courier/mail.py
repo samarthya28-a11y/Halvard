@@ -6,6 +6,7 @@ the window is measured, never assumed. Message bodies live here, in the customer
 analyse and stores only verdicts, hashes and header facts.
 """
 from ..addr import domain_of
+from ..fabric.connector_auth import seal
 import hashlib, secrets
 from dataclasses import dataclass, field
 
@@ -59,7 +60,7 @@ class ReferenceMail:
     def add_mailbox(self, addr, owner_upn=None): self.mailboxes[addr] = Mailbox(addr, owner_upn); return self.mailboxes[addr]
 
     def _ev(self, kind, mailbox, msg_id=None, **extra):
-        e = {"ts": self.clock.now(), "source": "mail", "kind": kind, "mailbox": mailbox, "msg_id": msg_id, **extra}; self.log.append(e); return e
+        e = {"ts": self.clock.now(), "source": "mail", "kind": kind, "mailbox": mailbox, "msg_id": msg_id, **extra}; self.log.append(seal(e)); return e
 
     def events_since(self, cursor): return self.log[cursor:], len(self.log)
 

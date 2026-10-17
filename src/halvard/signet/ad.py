@@ -6,6 +6,8 @@ security group, 4662 object operation (here: directory replication). Encryption 
 """
 from dataclasses import dataclass, field
 
+from ..fabric.connector_auth import seal
+
 DS_REPL_GET_CHANGES = "1131f6aa-9c07-11d1-f79f-00c04fc2dcd2"
 DS_REPL_GET_CHANGES_ALL = "1131f6ad-9c07-11d1-f79f-00c04fc2dcd2"
 PRIVILEGED_GROUPS = {"Domain Admins", "Enterprise Admins", "Schema Admins", "Administrators", "Account Operators", "Backup Operators"}
@@ -38,7 +40,7 @@ class ReferenceAD:
         u = ADUser(sam, pwd_last_set=self.clock.now(), **kw); self.users[sam] = u; return u
 
     def _ev(self, eid, dc="DC01", **fields):
-        e = {"ts": self.clock.now(), "source": "ad", "event_id": eid, "dc": dc, **fields}; self.log.append(e); return e
+        e = {"ts": self.clock.now(), "source": "ad", "event_id": eid, "dc": dc, **fields}; self.log.append(seal(e)); return e
 
     def events_since(self, cursor): return self.log[cursor:], len(self.log)
 

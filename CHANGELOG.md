@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.5 - 2026-10-17
+Slice 5 — Identity of programs and of connectors (features 5 and 14). **Built** in the Python reference. Native component not in this commit.
+- `trusted_writers`, `tripwire_exempt`, and an identity-shaped `blocked_apps` row match publisher plus image hash. The same file name with a different hash is not trusted and is not recorded as a block of the other program. A name-only row still matches a process that presents no image hash, and Glass temporary protections that do not yet know a hash still match the program name.
+- Signet, Courier, and Atlas seal reference events with a connector HMAC. Automatic isolate, password reset, mail clawback, and cloud-exposure revert run only when that seal verifies. An unsigned event is still stored as a finding marked `reference_model`. The HMAC is the reference connector key, not a customer KMS.
+
 ## 0.10.4 - 2026-10-17
 Slice 4 — Service boundary and keys (features 3 and 4). **Built** as a reference, native component not in this commit.
 - `customer`, `export`, `import_bundle`, `external_call`, and `dependency_report` require an enrolled member. A test helper may open `rec.cp`. Production methods do not open another company by id alone.

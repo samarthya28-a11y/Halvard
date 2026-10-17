@@ -48,6 +48,18 @@ from .signet.service import SignetService, entity_of_finding, idp_id, ad_id
 from .tenancy import TenantStore, TenantContext
 
 SYSTEM = Principal("halvard:auto", "system")
+_CONNECTOR_SOURCES = {"signet", "courier", "aws"}
+
+
+def _signed_connector(f):
+    d = getattr(f, "details", None) or {}
+    return bool(d.get("connector_signed")) and not d.get("reference_model")
+
+
+def _signed_case(case):
+    """Automatic containment uses Signet, Courier, and Atlas only when each of their findings was sealed by that connector."""
+    external = [f for f in case.findings if f.source in _CONNECTOR_SOURCES]
+    return all(_signed_connector(f) for f in external)
 
 
 class ControlPlane:
@@ -164,13 +176,16 @@ class ControlPlane:
             for l in self.courier.landings(h):
                 if (h, l["device"]) in self._landed or l["device"] not in {e["entity_id"] for e in self.store.entities(self.ctx)}: continue
                 self._landed.add((h, l["device"])); self.landing_paths.setdefault(h, []).append((l["device"], l["path"]))
+                landed = {"campaign": h, "path": l["path"], "connector_signed": bool(f.details.get("connector_signed"))}
+                if f.details.get("reference_model"): landed["reference_model"] = True
                 out.append(self.courier._f(l["ts"], "malicious_attachment_landed", "malicious_mail", l["device"], "T1204.002", min(0.99, f.confidence + 0.05),
-                                           "a file with the same fingerprint as the harmful attachment was saved on this device", f"The harmful attachment was saved on {l['device']}.", [f"hash:{h[:12]}"], campaign=h, path=l["path"]))
+                                           "a file with the same fingerprint as the harmful attachment was saved on this device", f"The harmful attachment was saved on {l['device']}.", [f"hash:{h[:12]}"], **landed))
         return out
 
     def auto_revert_exposure(self, f):
         """A bucket was opened to the internet. Put the protection back (recoverable) under the accepted 'cloud_exposure_revert' pattern;
         on production resources the matrix asks for an approver first, and the case says so."""
+        if not _signed_connector(f): return None
         if f.detector != "bucket_made_public" or f.confidence < 0.9 or f.entity in self._exposed: return None
         self._exposed.add(f.entity)
         res = self.engine.request(ActionRequest("block_public_access", SYSTEM, [f.entity], f"{f.entity} was opened to the internet", None, {}, automatic=True, pattern="cloud_exposure_revert", critical=True))
@@ -217,6 +232,7 @@ class ControlPlane:
     def auto_clawback(self, f):
         """The quick, safe response: pull every copy of a message judged harmful. Needs only the accepted 'mail_clawback' pattern."""
         key = f.details.get("campaign")
+        if not _signed_connector(f): return None
         if f.family not in ("malicious_mail", "impersonation") or f.confidence < 0.9 or not key or key in self._clawed or f.detector in ("opened_malicious_attachment", "malicious_attachment_on_device", "malicious_attachment_landed", "user_reported"): return None
         self._clawed.add(key)
         res = self.engine.request(ActionRequest("clawback_message", SYSTEM, [key], f"harmful message campaign {key[:12]}", None, {}, automatic=True, pattern="mail_clawback"))
@@ -279,6 +295,7 @@ class ControlPlane:
         conf, _ = self.cases.confidence(case)
         fams = {f.family for f in case.findings}
         endpoint_evidence = any(x.source == "ward" or x.details.get("detector") in ("malicious_attachment_landed", "malicious_attachment_on_device") for x in case.findings)
+        if not _signed_case(case): return None
         if conf < self.auto_threshold or not ("identity_takeover" in fams or ("malicious_mail" in fams and endpoint_evidence)): return None
         res = self.contain(case, SYSTEM, automatic=True); self.auto_log.append((case.id, res.status)); return res
 

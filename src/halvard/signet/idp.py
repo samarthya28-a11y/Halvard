@@ -11,6 +11,8 @@ It is a model, not a vendor clone, but it ENFORCES what the real thing enforces,
 import hashlib, secrets
 from dataclasses import dataclass, field
 
+from ..fabric.connector_auth import seal
+
 GLOBAL_ADMIN = "Global Administrator"
 PRIVILEGED_ROLES = {GLOBAL_ADMIN, "Privileged Role Administrator", "Exchange Administrator", "User Administrator", "Application Administrator"}
 HIGH_RISK_SCOPES = {"Mail.Read", "Mail.ReadWrite", "Mail.Send", "Files.ReadWrite.All", "Files.Read.All", "offline_access", "Directory.ReadWrite.All", "User.ReadWrite.All"}
@@ -82,7 +84,7 @@ class ReferenceIdP:
               "ip": kw.pop("ip", None), "geo": kw.pop("geo", None), "device_id": kw.pop("device_id", None), "app": kw.pop("app", None),
               "session_id": kw.pop("session_id", None), "extra": kw}
         d = self.devices.get(ev["device_id"]); ev["device_compliant"] = d["compliant"] if d else None
-        self.log.append(ev); return ev
+        self.log.append(seal(ev)); return ev
 
     def events_since(self, cursor):
         return self.log[cursor:], len(self.log)
