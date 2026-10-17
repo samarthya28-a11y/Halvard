@@ -13,7 +13,7 @@ def bundle(w, name, version, **kw): d = os.path.join(w.tmp, name); build_bundle(
 
 class ProfileTests(unittest.TestCase):
     def test_the_dependency_report_says_what_each_profile_does_instead_of_calling_out(self):
-        w = World8(); r = {d["module"]: d for d in w.p.dependency_report("bank")}; cloud = {d["module"]: d for d in w.p.dependency_report("acme")}
+        w = World8(); r = {d["module"]: d for d in w.p.dependency_report(w.m("bank"))}; cloud = {d["module"]: d for d in w.p.dependency_report(w.m("acme"))}
         self.assertTrue(all(d["status"] == "online" and not d["instead"] for d in cloud.values()))
         self.assertEqual((r["Keeper"]["status"], r["Support"]["status"], r["Glass"]["status"]), ("substitute", "substitute", "substitute")); self.assertIn("signed offline bundle", r["Ward"]["instead"]); self.assertIn("customer's own people", r["Keeper"]["instead"])
 

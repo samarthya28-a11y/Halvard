@@ -97,23 +97,45 @@ def digest_of(tool, action, p):
 def _b(x): return x if isinstance(x, bytes) else (x or "").encode() if isinstance(x, str) else b""
 
 
+TAINT_CARRY = 1800.0       # seconds an agent stays 'tainted' after reading untrusted content, across all its sessions
+
+
 class AgentGateway:
     def __init__(self, registry, tools, clock, audit=None, inspector=None, rate_limit=RATE_LIMIT, internal_domains=()):
         self.registry, self.tools, self.clock, self.audit = registry, tools, clock, audit
         self.inspector, self.rate_limit, self.internal_domains = inspector, rate_limit, {d.lower() for d in internal_domains}
         self.sessions, self.pending, self.findings, self._cursor, self._n, self._pn = {}, {}, [], 0, 0, 0
+        # the agent, not the session id the caller picks, is what remembers untrusted content and counts calls: rotating the id must not reset either
+        self._agent_taint, self._agent_calls = {}, {}
 
     def _log(self, kind, subject, data, controls=("LUMEN.AGENT_GATEWAY",)):
         if self.audit: self.audit.append(kind, "halvard:lumen", "system", subject, data, controls=controls)
 
     # ---------------- sessions and untrusted context ----------------
+    def _carried(self, agent_id):
+        """Untrusted content this agent took in recently, in ANY of its sessions (it decays after TAINT_CARRY seconds or when a person clears it)."""
+        now = self.clock.now(); return {src: 1 for src, t in self._agent_taint.get(agent_id, {}).items() if now - t <= TAINT_CARRY}
+
     def session(self, agent_id, sid=None):
         sid = sid or f"s-{agent_id}-{len([s for s in self.sessions.values() if s.agent == agent_id]) + 1}"
-        return self.sessions.setdefault(sid, Session(sid, agent_id))
+        new = sid not in self.sessions
+        sess = self.sessions.setdefault(sid, Session(sid, agent_id))
+        if new:
+            for src in self._carried(agent_id): sess.taint.setdefault(src, 1)      # a fresh session of the same agent is not a fresh mind
+        return sess
 
     def ingest(self, session, source, trusted=False):
-        """Context the agent took in outside a tool call (a user attachment, a pasted web page). Untrusted content taints the session."""
-        if not trusted: session.taint[source] = session.taint.get(source, 0) + 1
+        """Context the agent took in outside a tool call (a user attachment, a pasted web page). Untrusted content taints the session AND the agent."""
+        if not trusted:
+            session.taint[source] = session.taint.get(source, 0) + 1
+            self._agent_taint.setdefault(session.agent, {})[source] = self.clock.now()
+
+    def clear_taint(self, agent_id, approver):
+        """A person (not the agent) says the earlier untrusted content has been dealt with."""
+        self._agent_taint.pop(agent_id, None)
+        for s in self.sessions.values():
+            if s.agent == agent_id: s.taint.clear()
+        self._log("lumen.taint_cleared", agent_id, {"agent": agent_id, "approver": approver})
 
     # ---------------- the rules ----------------
     def _classify(self, agent, tool, name, data):
@@ -149,11 +171,12 @@ class AgentGateway:
         if ac in LEAVING and sens == "confidential": hit("ask", "agent-confidential-external", "This carries confidential data outside the company. A person must approve it.")
         if ac in LEAVING and not known and params.get("data"): hit("ask", "agent-unknown-data-external", "Content inspection is off, so Halvard cannot tell what data this is. A person must approve sending it outside.")
         if ac in DESTRUCTIVE: hit("block" if agent.tier != "reviewed" else "ask", "agent-destructive", "This can delete, run code, change access or spend money. " + ("The agent has not been reviewed, so it is refused." if agent.tier != "reviewed" else "A person must approve it."))
-        if session.taint and ac in TAINT_SENSITIVE:
-            srcs = ", ".join(sorted(session.taint)); hit("ask", "agent-untrusted-context", f"The agent read untrusted content ({srcs}) earlier in this session, and is now asked to do something that could be a response to instructions hidden in it. A person must approve.")
+        taint = {**self._carried(agent.id), **session.taint}
+        if taint and ac in TAINT_SENSITIVE:
+            srcs = ", ".join(sorted(taint)); hit("ask", "agent-untrusted-context", f"The agent read untrusted content ({srcs}) earlier in this session, and is now asked to do something that could be a response to instructions hidden in it. A person must approve.")
             if sens in ("regulated", "confidential") and ac in LEAVING: hit("block", "agent-untrusted-context", f"After reading untrusted content ({srcs}) the agent tried to send protected data out.")
         if agent.tier != "reviewed" and ac in ("write_internal", "send_external"): hit("ask", "agent-unreviewed-write", "This agent has not been reviewed. A person must approve what it writes or sends.")
-        now = self.clock.now(); recent = [t for t in session.calls if now - t <= RATE_WINDOW]
+        now = self.clock.now(); recent = [t for t in self._agent_calls.get(agent.id, []) if now - t <= RATE_WINDOW]      # per agent: new session ids do not reset the count
         if len(recent) >= self.rate_limit: hit("ask", "agent-runaway", f"{len(recent)} tool calls in the last minute. This looks like a loop; a person must say it should continue.")
         best.also = [best.rule] + [r for r in also if r != best.rule] if best.action != "allow" else []
         return best
@@ -169,6 +192,7 @@ class AgentGateway:
         if agent.source == "observed" and d.rule == "agent-undeclared-tool": d = Decision("block", "agent-unregistered", "This agent is not on the inventory. Nothing it asks for will run until a person registers it.", d.labels, known, False)
         dig = digest_of(tool, action, params); out = {"decision": d.action, "rule": d.rule, "message": d.message, "labels": d.labels, "data_known": known, "step": session.step, "digest": dig, "rules": d.also}
         session.calls.append(self.clock.now())
+        ac_ = self._agent_calls.setdefault(agent.id, []); ac_.append(self.clock.now()); del ac_[:-1000]
         if d.action == "allow": out["result"] = self._run(agent, session, tool, action, params, dig)
         elif d.action == "ask":
             self._pn += 1; pid = f"ask-{self._pn}"; self.pending[pid] = {"agent": agent_id, "session": session.id, "tool": tool, "action": action, "params": params, "digest": dig, "step": session.step, "exp": self.clock.now() + ASK_TTL, "rule": d.rule}

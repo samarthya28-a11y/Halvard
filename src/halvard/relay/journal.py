@@ -58,6 +58,8 @@ class Journal:
         self.db.execute("PRAGMA journal_mode=WAL"); self.db.execute("PRAGMA synchronous=NORMAL")
         self.db.execute("""CREATE TABLE IF NOT EXISTS rec(id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, pid INTEGER,
             op TEXT, path TEXT, dst TEXT, pre TEXT, post TEXT, note TEXT)""")
+        if "dst_pre" not in {r[1] for r in self.db.execute("PRAGMA table_info(rec)")}:
+            self.db.execute("ALTER TABLE rec ADD COLUMN dst_pre TEXT")      # pre-image of a file that a rename overwrote
         self.db.execute("CREATE INDEX IF NOT EXISTS rec_pid ON rec(pid, ts)")
         self._lock = threading.RLock()
         self._last_cap = {}   # path key -> (ts, blob, pid)
@@ -106,8 +108,10 @@ class Journal:
     def before(self, pid, op, path, dst=None, data=None, head=None, forced_note=None, no_open=False):
         """op in write|delete|rename|create. Returns (record id for after(), head bytes of the pre-image or None)."""
         path = str(path); dst = str(dst) if dst is not None else None
+        if op in ("write", "open") and os.path.islink(path):
+            path = os.path.realpath(path)      # a write through a link changes the TARGET: journal and restore that, never replace the link itself
         with self._lock:
-            pre = note = head = None; reused = False
+            pre = note = head = dst_pre = None; reused = False
             if op in ("write", "delete", "rename", "open"):
                 last = self._last_cap.get(self.key(path))
                 now = self.clock.now()
@@ -123,8 +127,11 @@ class Journal:
                     head = head or h2
                     if pre:
                         self._last_cap[self.key(path)] = (now, pre, pid)
-            cur = self.db.execute("INSERT INTO rec(ts,pid,op,path,dst,pre,note) VALUES(?,?,?,?,?,?,?)",
-                                  (self.clock.now(), pid, op, path, dst, pre, note))
+            if op == "rename" and dst and os.path.isfile(dst):
+                dst_pre, dnote, _ = self._store(dst)      # os.replace destroys the destination: keep what it held
+                if dnote: note = (note + "; " if note else "") + f"overwritten destination not kept ({dnote})"
+            cur = self.db.execute("INSERT INTO rec(ts,pid,op,path,dst,pre,note,dst_pre) VALUES(?,?,?,?,?,?,?,?)",
+                                  (self.clock.now(), pid, op, path, dst, pre, note, dst_pre))
             if not reused:      # re-writes of an already-captured path are committed with the next capture
                 self.db.commit()
             return cur.lastrowid, head
@@ -155,11 +162,11 @@ class Journal:
         rep = RollbackReport()
         self.db.commit()
         qs = ",".join("?" * len(pids))
-        rows = self.db.execute(f"SELECT id,ts,pid,op,path,dst,pre,post,note FROM rec WHERE pid IN ({qs}) AND ts>=? "
+        rows = self.db.execute(f"SELECT id,ts,pid,op,path,dst,pre,post,note,dst_pre FROM rec WHERE pid IN ({qs}) AND ts>=? "
                                f"ORDER BY id DESC", (*pids, since)).fetchall()
         # forward-replay the expected end state of every path the incident touched
         expected = {}
-        for (_id, _ts, _pid, op, path, dst, pre, post, note) in reversed(rows):
+        for (_id, _ts, _pid, op, path, dst, pre, post, note, dst_pre) in reversed(rows):
             if op == "open":
                 continue     # read-only so far: nothing to compare; restored below only if the file vanished
             if op == "rename":
@@ -178,7 +185,7 @@ class Journal:
         if snapshot_dir and not dry_run:   # keep current state so the rollback itself can be undone (F045)
             snap = Path(snapshot_dir); snap.mkdir(parents=True, exist_ok=True)
             rep.snapshot_id = snap.name
-        for (_id, _ts, _pid, op, path, dst, pre, post, note) in rows:
+        for (_id, _ts, _pid, op, path, dst, pre, post, note, dst_pre) in rows:
             final = dst if op == "rename" else path
             if path in tainted or final in tainted:
                 continue
@@ -200,6 +207,9 @@ class Journal:
                 if pre:
                     if not dry_run: self._restore(pre, path)
                     rep.restored.append(path)
+                if dst_pre and not os.path.exists(dst):
+                    if not dry_run: self._restore(dst_pre, dst)      # the file the rename overwrote comes back
+                    rep.restored.append(dst)
             elif op in ("write", "delete"):
                 if pre:
                     if not dry_run: self._restore(pre, path)
@@ -212,6 +222,11 @@ class Journal:
                 if pre and not os.path.exists(path) and path not in tainted:
                     if not dry_run: self._restore(pre, path)
                     rep.restored.append(path)
+                elif pre and os.path.isfile(path):
+                    try: changed = sha(path) != pre
+                    except OSError: changed = True
+                    if changed:      # opened by the incident process, content differs, but no write was ever reported: say so instead of staying silent
+                        rep.not_restorable.append((path, "opened by the incident program and its content now differs from before, but no write was observed, so it was not restored automatically"))
         rep.not_restorable = sorted(set(rep.not_restorable))
         rep.restored = sorted(set(rep.restored)); rep.removed_created = sorted(set(rep.removed_created))
         return rep

@@ -26,12 +26,12 @@ class WallMethodTests(unittest.TestCase):
     def test_revoking_the_customer_key_refuses_export_as_well_as_sign_in(self):
         kms = ReferenceKMS(ManualClock(), "bank-kms")
         w = World8(bank_kms=kms)
-        self.assertTrue(w.p.export("bank", "eu-central"))
+        self.assertTrue(w.p.export(w.m("bank"), "eu-central"))
         kms.revoke(); w.p.refresh_key("bank")
         with self.assertRaises(AccessRefused):
             w.p.customer(w.m("bank"))
         with self.assertRaises(AccessRefused):
-            w.p.export("bank", "eu-central")
+            w.p.export(w.m("bank"), "eu-central")
 
     def test_two_companies_keep_the_same_entity_id_apart(self):
         w = World8()

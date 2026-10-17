@@ -270,7 +270,7 @@ def platform():
     except PermissionError as e: print("  an action not on the charter:", e)
     print("  what acme sees of Keeper's work:", [(x["kind"].split("_", 1)[1], x.get("action")) for x in d.report(w.m("acme", "owner"))])
     print("\nResidency and the customer's own key:")
-    try: P.export("acme", "us-east")
+    try: P.export(w.m("acme", "owner"), "us-east")
     except R.AccessRefused as e: print("  export to the US:", e)
     kms = R.ReferenceKMS(w.clock, "bank-hsm"); w2 = R.World8(bank_kms=kms); b = w2.p.tenants["bank"]; w2.p.store.put_object(b.cp.ctx, "r.txt", b"quarterly numbers")
     print("  bank object on disk contains the text:", b"quarterly" in open(w2.p.store.object_path(b.cp.ctx, "r.txt"), "rb").read()); kms.revoke(); w2.p.refresh_key("bank")

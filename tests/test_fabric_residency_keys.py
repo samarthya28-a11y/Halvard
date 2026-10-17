@@ -59,8 +59,8 @@ class ResidencyTests(unittest.TestCase):
         with self.assertRaises(ValueError): ResidencyPolicy("mars")
 
     def test_an_export_to_another_region_is_refused_and_recorded_and_nothing_moves(self):
-        w = World8(); self.assertTrue(w.p.export("acme", "eu-west"))
-        with self.assertRaises(AccessRefused) as cm: w.p.export("acme", "us-east")
+        w = World8(); self.assertTrue(w.p.export(w.m("acme"), "eu-west"))
+        with self.assertRaises(AccessRefused) as cm: w.p.export(w.m("acme"), "us-east")
         self.assertIn("stays in eu-west", str(cm.exception)); kinds = [r["kind"] for r in w.p.tenants["acme"].cp.ledger.entries() if r["kind"].startswith("fabric.export")]; self.assertEqual(kinds, ["fabric.export_allowed", "fabric.export_refused"])
 
     def test_staff_support_only_from_an_allowed_region_and_follow_the_sun_is_a_choice_the_company_makes(self):

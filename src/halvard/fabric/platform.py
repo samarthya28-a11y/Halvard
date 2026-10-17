@@ -171,7 +171,9 @@ class Platform:
         """An outbound call made on a company's behalf. Only that company's own enrolled people can cause one."""
         self._auth(member); self.tenants[member.tenant].egress.check(dest, purpose); return fn()
 
-    def dependency_report(self, tenant): return dependencies(self.tenants[tenant].deployment)
+    def dependency_report(self, member: Member):
+        """What this company's deployment calls out to (or does instead). Only that company's own enrolled people can read it."""
+        self._auth(member); return dependencies(self.tenants[member.tenant].deployment)
 
     def import_bundle(self, member: Member, path, vendor_key):
         """Apply a signed offline bundle (advisories, AI tool catalog, known-bad file hashes) to the member's own company. Who is asking is checked first,
@@ -203,8 +205,11 @@ class Platform:
         gid = self.store.grants.open(opener.tenant, staff_principal, minutes, opener.id)
         rec.cp.ledger.append("fabric.support_grant", opener.id, opener.role, staff_principal, {"grant": gid, "minutes": minutes, "region": staff_region}, controls=("FABRIC.DELEGATION",)); return gid
 
-    def export(self, tenant, destination_region):
-        """The customer's data export (F128 in spirit): refused if the destination region is outside the tenant's residency."""
+    def export(self, member: Member, destination_region):
+        """The customer's data export (F128 in spirit): refused if the destination region is outside the tenant's residency. Only the company's own owner or IT admin can ask."""
+        self._auth(member)
+        if member.role not in ("owner", "it_admin"): self._refuse(member.tenant, member.id, "only the company's owner or IT admin can export its data", "fabric.export_refused")
+        tenant = member.tenant
         rec = self.tenants[tenant]; self.refresh_key(tenant)
         if self.locked(tenant): self._refuse(tenant, "halvard:fabric", "the company's key service has locked its data; nothing can be exported", "fabric.export_refused")
         ok, why = rec.residency.check("export", destination_region)

@@ -76,6 +76,9 @@ class AuditLog:
         self.anchor = self.path.with_suffix(".head")
         self.tenant, self._key = tenant, key
         self.clock = clock
+        # off-box witness: called with (seq, hash) after every append. Where it sends them (control plane, a second machine, write-once storage) is what makes
+        # "delete the log AND its local anchor" detectable; the local anchor alone cannot, because both files sit in the same directory.
+        self.witness, self.witness_failures = None, 0
         self._lock = threading.Lock()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.touch(exist_ok=True)
@@ -103,6 +106,9 @@ class AuditLog:
                 f.flush(); os.fsync(f.fileno())
             self._seq, self._head = seq, hh
             self._write_anchor()
+            if self.witness:
+                try: self.witness(seq, hh)
+                except Exception: self.witness_failures += 1      # a witness that is down must not stop the log, but the failure is counted and visible
             return rec
 
     def seal_bytes(self, data: bytes) -> str:
@@ -137,11 +143,12 @@ class AuditLog:
     def head(self):
         return self._seq, self._head
 
-    def verify(self):
-        """Return (ok, problems). Detects edits, deletions, reordering, bad seals and tail truncation."""
-        problems, prev, n = [], self.GENESIS, 0
+    def verify(self, witnessed=None):
+        """Return (ok, problems). Detects edits, deletions, reordering, bad seals and tail truncation.
+        `witnessed` is the newest (seq, hash) the off-box witness holds: with it, removing the log together with its local anchor is detected too."""
+        problems, prev, n, hashes = [], self.GENESIS, 0, {}
         for rec in self.entries():
-            n += 1
+            n += 1; hashes[rec["seq"]] = rec["hash"]
             head = {k: rec[k] for k in ("seq", "ts", "tenant", "kind", "actor_role", "subject", "controls")}
             exp = _entry_hash(rec["prev"], head, _h(_canon(rec["public"])), _h(_canon(rec["private"])))
             if rec["prev"] != prev:
@@ -153,6 +160,10 @@ class AuditLog:
             if not hmac.compare_digest(hmac.new(self._key, rec["hash"].encode(), "sha256").hexdigest(), rec["seal"]):
                 problems.append(f"seq {rec['seq']}: seal invalid")
             prev = rec["hash"]
+        if witnessed is not None:
+            wseq, whash = witnessed
+            if n < wseq: problems.append(f"log ends at seq {n} but the off-box witness holds seq {wseq}: entries were removed or the log was replaced")
+            elif hashes.get(wseq) != whash: problems.append(f"the entry at seq {wseq} differs from what the off-box witness recorded: the log was rewritten")
         try:
             a = json.loads(self.anchor.read_text(encoding="utf-8"))
             seal = a.pop("seal")

@@ -43,7 +43,7 @@ def available():
 
 class LinuxHost(SimHost):
     """Process control and triage from /proc. Isolation is recorded, not applied: rules are rendered in relay.isolation."""
-    PROTECTED = {0, 1}
+    PROTECTED = {0, 1, 2}      # 2 is kthreadd: signalling it (or its children, the kernel threads) can hang the machine
 
     def proc(self, pid):
         try:
@@ -62,8 +62,17 @@ class LinuxHost(SimHost):
         return {"name": comm, "user": uid, "state": {"T": "suspended", "Z": "terminated", "X": "terminated"}.get(state, "running"),
                 "exe_sha256": None, "cmdline": cmd, "ppid": ppid, "exe": exe}
 
+    @staticmethod
+    def _is_kernel_thread(pid):
+        """Kernel threads are children of kthreadd (pid 2) and have no executable. Never freeze or kill one."""
+        try:
+            stat_txt = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
+            return int(stat_txt.rsplit(")", 1)[1].split()[1]) == 2
+        except (OSError, ValueError, IndexError):
+            return False
+
     def _signal(self, pid, sig):
-        if pid in self.PROTECTED or pid == os.getpid() or pid == os.getppid():
+        if pid in self.PROTECTED or pid == os.getpid() or pid == os.getppid() or self._is_kernel_thread(pid):
             raise PermissionError(f"refusing to signal pid {pid}")
         try: os.kill(pid, sig)
         except ProcessLookupError: pass
@@ -224,7 +233,8 @@ class FanotifySensor:
             rid, head = j.before(pid, "open", path, data=data, no_open=True)
         seen = self.opened.setdefault(pid, {})
         head = head or seen.get(path)            # a rate-limited re-open reuses the head from the first open of this file
-        if len(self.pending) > 50_000: self.pending.pop(next(iter(self.pending)))
+        if len(self.pending) > 50_000:
+            self.pending.pop(next(iter(self.pending))); self.stats["pending_dropped"] = self.stats.get("pending_dropped", 0) + 1      # an open whose close we may never match: counted so a gap is visible, not silent
         self.pending[(pid, st.st_dev, st.st_ino)] = (rid, head, st.st_size == 0)     # keyed by file identity: it may be renamed while open
         if head and len(seen) < 5000: seen[path] = head
         return FAN_ALLOW

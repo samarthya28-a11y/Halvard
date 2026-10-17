@@ -62,7 +62,7 @@ class WardAgent:
         self._nonces = set()
         self.tamper = TamperGuard(self.root / "install", uninstall_key, clock, self.spool, device_id,
                                   bundle.retention_days_after_uninstall)
-        self.tripwires, self.tripwire_hits, self._tw_state = {}, [], {}
+        self.tripwires, self.tripwire_hits, self._tw_state, self._tw_inodes = {}, [], {}, {}
         self._build_engine(); self._build_dlp(); self._place_tripwires()
         self.sensors = {"heartbeat": clock.now()}
 
@@ -120,11 +120,19 @@ class WardAgent:
         """Create each tripwire the signed policy names. Never over an existing file, never in an operating-system folder, never twice."""
         want = {self._twkey(t["path"]): t for t in self.bundle.tripwires}
         for k in [k for k in self.tripwires if k not in want]:                 # removed from policy: take the file away if it is still ours
-            tw = self.tripwires.pop(k)
+            tw = self.tripwires.pop(k); self._tw_inodes = {i: v for i, v in getattr(self, "_tw_inodes", {}).items() if v != k}
+            kept = None
+            tmp = f"{k}.halvard-rm-{os.getpid()}"
             try:
-                if hashlib.sha256(Path(k).read_bytes()).hexdigest() == tw["sha"]: Path(k).unlink()
-            except OSError: pass
-            self.spool.append("ward.tripwire_removed", "system", "system", self.device_id, {"tripwire": tw["id"]}, controls=("HEARTH.TRIPWIRES",))
+                os.replace(k, tmp)           # take the CURRENT file away atomically, then look at what we hold: a file the user swapped in after placement is never deleted
+                try:
+                    if hashlib.sha256(Path(tmp).read_bytes()).hexdigest() == tw["sha"]: os.unlink(tmp)
+                    else:
+                        try: os.rename(tmp, k)                 # not ours any more: put it back exactly where it was
+                        except OSError: kept = tmp             # the user already created something new there: keep theirs under the temporary name and say so
+                except OSError: kept = tmp
+            except OSError: pass             # already gone or not accessible: nothing of ours to remove
+            self.spool.append("ward.tripwire_removed", "system", "system", self.device_id, {"tripwire": tw["id"], **({"kept_as": kept} if kept else {})}, controls=("HEARTH.TRIPWIRES",))
         for k, t in want.items():
             if k in self.tripwires: continue
             why = None
@@ -135,8 +143,18 @@ class WardAgent:
             elif not Path(k).parent.is_dir(): why = "the folder does not exist"
             if why:
                 self.spool.append("ward.tripwire_skipped", "system", "system", self.device_id, {"tripwire": t["id"], "why": why, "path": k}, controls=("HEARTH.TRIPWIRES",)); continue
-            data = self._decoy_bytes(t); Path(k).write_bytes(data)
+            data = self._decoy_bytes(t)
+            try:
+                with open(k, "xb") as f: f.write(data)      # exclusive create: a file that appears after the checks above is never replaced
+            except FileExistsError:
+                self.spool.append("ward.tripwire_skipped", "system", "system", self.device_id, {"tripwire": t["id"], "why": "a file already exists there; Halvard never replaces an existing file", "path": k}, controls=("HEARTH.TRIPWIRES",)); continue
+            except OSError as e:
+                self.spool.append("ward.tripwire_skipped", "system", "system", self.device_id, {"tripwire": t["id"], "why": f"cannot create it there: {e.strerror or e}", "path": k}, controls=("HEARTH.TRIPWIRES",)); continue
             self.tripwires[k] = {"id": t["id"], "kind": t["kind"], "sha": hashlib.sha256(data).hexdigest()}
+            try:
+                st = os.stat(k)
+                if st.st_ino: self._tw_inodes[(st.st_dev, st.st_ino)] = k      # a hard link to this file is the same file
+            except OSError: pass
             self.spool.append("ward.tripwire_placed", "system", "system", self.device_id, {"tripwire": t["id"], "kind": t["kind"], "path": k}, controls=("HEARTH.TRIPWIRES",))
 
     def tripwire_gate(self, pid, op, *paths):
@@ -144,6 +162,11 @@ class WardAgent:
         if not self.tripwires: return          # most devices have none: the hot path pays nothing
         for p in paths:
             tw = self.tripwires.get(self._twkey(p))
+            if not tw and self._tw_inodes:
+                try:
+                    st = os.stat(p); k2 = self._tw_inodes.get((st.st_dev, st.st_ino)) if st.st_ino else None      # a hard link has another name but is the same file
+                    tw = self.tripwires.get(k2) if k2 else None
+                except OSError: tw = None
             if not tw: continue
             proc = (self.host.proc(pid) or {}).get("name")
             if self._trusted(pid) or proc in self.bundle.tripwire_exempt:
