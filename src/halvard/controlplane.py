@@ -116,6 +116,7 @@ class ControlPlane:
         self.idp.register_device(agent.device_id, owner_upn, compliant=True)
         self.store.put_entity(self.ctx, agent.device_id, "device", agent.device_id, self.clock.now(), asset_class=agent.asset_class, criticality=criticality)
         self.store.put_sensor(self.ctx, f"ward-{agent.device_id}", agent.device_id, "ward", self.clock.now())
+        agent.coverage = self.coverage
         self.fleet.register(agent)
 
     # ---------------- ingest ----------------

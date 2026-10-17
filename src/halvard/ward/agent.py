@@ -415,7 +415,23 @@ class WardAgent:
         self.tamper.seal()
 
     def heartbeat(self):
+        if getattr(self, "heartbeats_on", True) is False:
+            return
         self.sensors["heartbeat"] = self.clock.now(); self.engine.offer_due()
+
+    def stop_heartbeats(self):
+        """The file hook stopped checking in. One coverage row, not a repeated alarm."""
+        if getattr(self, "heartbeats_on", True) is False:
+            return
+        self.heartbeats_on = False
+        self.note_coverage("heartbeat_stopped")
+
+    def note_coverage(self, reason):
+        when = self.clock.now()
+        self.spool.append("ward.coverage", "system", "system", self.device_id, {"device": self.device_id, "reason": reason, "time": when}, controls=("WARD.COVERAGE",))
+        cov = getattr(self, "coverage", None)
+        if cov is not None:
+            cov.record(self.device_id, reason, when)
 
     def block_pid(self, pid):
         self.blocked.add(pid)

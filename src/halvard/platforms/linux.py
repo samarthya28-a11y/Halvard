@@ -196,14 +196,31 @@ class FanotifySensor:
                 if fd < 0: continue
                 try: self._perm_event(mask, fd, pid)
                 except Exception as e:
-                    self.stats["errors"] += 1; self.errors.append(repr(e))
-                    if mask & (FAN_OPEN_PERM | FAN_OPEN_EXEC_PERM): self._reply(fd, FAN_ALLOW)      # sensor faults fail open, visibly
+                    self._on_perm_error(mask, fd, e)      # sensor faults fail open, and the allow is recorded
                 finally:
                     try: os.close(fd)
                     except OSError: pass
 
     def _reply(self, fd, resp):
         os.write(self.pfd, struct.pack("<ii", fd, resp))
+
+    def _on_perm_error(self, mask, fd, exc):
+        """The hook allows the open when it throws, and that allow is a coverage row."""
+        self.stats["errors"] = self.stats.get("errors", 0) + 1
+        self.errors.append(repr(exc))
+        if mask & (FAN_OPEN_PERM | FAN_OPEN_EXEC_PERM):
+            self.agent.note_coverage("failed_open")
+            self._reply(fd, FAN_ALLOW)
+
+    def _drop_pending(self):
+        if not self.pending: return
+        dropped = self.pending.pop(next(iter(self.pending)))
+        if dropped and dropped[0]:
+            self.agent.journal.drop_pending(dropped[0])
+        stats = getattr(self, "stats", None)
+        if stats is not None:
+            stats["pending_dropped"] = stats.get("pending_dropped", 0) + 1
+        self.agent.note_coverage("pending_dropped")
 
     def _perm_event(self, mask, fd, pid):
         a = self.agent
@@ -240,10 +257,7 @@ class FanotifySensor:
         seen = self.opened.setdefault(pid, {})
         head = head or seen.get(path)            # a rate-limited re-open reuses the head from the first open of this file
         if len(self.pending) > 50_000:
-            dropped = self.pending.pop(next(iter(self.pending)))
-            if dropped and dropped[0]:
-                j.drop_pending(dropped[0])      # the pre-image stays; rollback must not call this a clean restore
-            self.stats["pending_dropped"] = self.stats.get("pending_dropped", 0) + 1
+            self._drop_pending()      # the pre-image stays; rollback must not call this a clean restore
         self.pending[(pid, st.st_dev, st.st_ino)] = (rid, head, st.st_size == 0)     # keyed by file identity: it may be renamed while open
         if head and len(seen) < 5000: seen[path] = head
         return FAN_ALLOW

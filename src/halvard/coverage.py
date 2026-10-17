@@ -14,6 +14,15 @@ class Gap:
 class CoverageMonitor:
     def __init__(self, store, ctx, clock, audit=None):
         self.store, self.ctx, self.clock, self.audit = store, ctx, clock, audit
+        self.rows = []
+
+    def record(self, device, reason, when=None):
+        """One row a person can read: which device, why coverage failed, and when."""
+        row = {"device": device, "reason": reason, "time": self.clock.now() if when is None else when}
+        self.rows.append(row)
+        if self.audit:
+            self.audit.append("coverage.row", "halvard:coverage", "system", device, dict(row), controls=("WARD.COVERAGE",))
+        return row
 
     def evaluate(self, change_windows=None, record=True):
         now, gaps = self.clock.now(), []

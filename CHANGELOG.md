@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.6 - 2026-10-17
+Slice 6 — Coverage (features 9 and 15). **Built** in the Python reference. Native component not in this commit.
+- When the file hook allows an open because it threw, drops a pending record, or stops heartbeats, it writes one ledger event and one coverage row: device, reason, and time. The reason text is in the private half of the ledger because free-text reasons already live there.
+- The board page lists live, quiet, failed open, and no agent. The coverage score counts a failed-open row, so a score that ignores it is lower when the row is present. There is no pager and no email integration. The Linux fanotify stand-in records the allow it already returns when the hook throws.
+
 ## 0.10.5 - 2026-10-17
 Slice 5 — Identity of programs and of connectors (features 5 and 14). **Built** in the Python reference. Native component not in this commit.
 - `trusted_writers`, `tripwire_exempt`, and an identity-shaped `blocked_apps` row match publisher plus image hash. The same file name with a different hash is not trusted and is not recorded as a block of the other program. A name-only row still matches a process that presents no image hash, and Glass temporary protections that do not yet know a hash still match the program name.
