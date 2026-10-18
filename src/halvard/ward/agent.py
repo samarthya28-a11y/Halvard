@@ -121,6 +121,15 @@ class WardAgent:
     FORBIDDEN_ROOTS = ("/etc", "/usr", "/bin", "/sbin", "/boot", "/sys", "/proc", "/dev", "/lib", "/var", "/opt", "/root", "/run", "/windows", "/program files", "/programdata")
 
     @staticmethod
+    def _os_folder(kk):
+        """A forbidden root is that folder and its children. `/run` does not refuse `/runner`, and `/opt` does not refuse `/optical`."""
+        def hit(rest):
+            return any(rest == r or rest.startswith(r + "/") for r in WardAgent.FORBIDDEN_ROOTS)
+        if hit(kk): return True
+        if len(kk) > 2 and kk[1:2] == ":": return hit(kk[2:])
+        return False
+
+    @staticmethod
     def _twkey(path): return os.path.normcase(os.path.realpath(str(path))).replace("\\", "/")      # a link to a tripwire is the tripwire
 
     def _decoy_bytes(self, spec):
@@ -153,7 +162,7 @@ class WardAgent:
             why = None
             kk = k.lower().replace("\\", "/")
             if not (os.path.isabs(t["path"]) or str(t["path"]).replace("\\", "/").startswith("/")): why = "the path is not absolute"
-            elif any(kk.startswith(r) or (len(kk) > 2 and kk[1:2] == ":" and kk[2:].startswith(r)) for r in self.FORBIDDEN_ROOTS): why = "operating-system folders are never used"
+            elif self._os_folder(kk): why = "operating-system folders are never used"
             elif os.path.lexists(k): why = "a file already exists there; Halvard never replaces an existing file"
             elif not Path(k).parent.is_dir(): why = "the folder does not exist"
             if why:

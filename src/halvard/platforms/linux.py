@@ -189,17 +189,22 @@ class FanotifySensor:
             if not r: continue
             try: buf = os.read(self.pfd, 262144)
             except BlockingIOError: continue
-            off = 0
-            while off + HDR.size <= len(buf):
-                elen, vers, _, mlen, mask, fd, pid = HDR.unpack_from(buf, off)
-                off += elen
-                if fd < 0: continue
-                try: self._perm_event(mask, fd, pid)
-                except Exception as e:
-                    self._on_perm_error(mask, fd, e)      # sensor faults fail open, and the allow is recorded
-                finally:
-                    try: os.close(fd)
-                    except OSError: pass
+            self._consume_perm(buf)
+
+    def _consume_perm(self, buf):
+        off = 0
+        while off + HDR.size <= len(buf):
+            elen, vers, _, mlen, mask, fd, pid = HDR.unpack_from(buf, off)
+            if elen < HDR.size:      # a malformed length would leave the offset where it is and spin forever: stop reading this buffer, visibly
+                self.stats["errors"] += 1; self.errors.append(f"fanotify event with impossible length {elen}"); break
+            off += elen
+            if fd < 0: continue
+            try: self._perm_event(mask, fd, pid)
+            except Exception as e:
+                self._on_perm_error(mask, fd, e)      # sensor faults fail open, and the allow is recorded
+            finally:
+                try: os.close(fd)
+                except OSError: pass
 
     def _reply(self, fd, resp):
         os.write(self.pfd, struct.pack("<ii", fd, resp))
@@ -328,21 +333,28 @@ class FanotifySensor:
             if not r: continue
             try: buf = os.read(self.nfd, 262144)
             except BlockingIOError: continue
-            off = 0; self._busy_notify = True
-            while off + HDR.size <= len(buf):
-                elen, vers, _, mlen, mask, fd, pid = HDR.unpack_from(buf, off)
-                names = {}
-                p = off + mlen
-                while p < off + elen:
-                    itype, _, ilen = struct.unpack_from("<BBH", buf, p)
-                    if itype in (INFO_DFID_NAME, INFO_OLD_DFID_NAME, INFO_NEW_DFID_NAME):
-                        names[itype] = self._decode(buf, p, ilen)
-                    p += ilen
-                off += elen
-                try: self._notify_event(mask, pid, names)
-                except Exception as e:
-                    self.stats["errors"] += 1; self.errors.append(repr(e))
-            self._busy_notify = False
+            self._consume_notify(buf)
+
+    def _consume_notify(self, buf):
+        off = 0; self._busy_notify = True
+        while off + HDR.size <= len(buf):
+            elen, vers, _, mlen, mask, fd, pid = HDR.unpack_from(buf, off)
+            if elen < HDR.size:
+                self.stats["errors"] += 1; self.errors.append(f"fanotify event with impossible length {elen}"); break
+            names = {}
+            p = off + mlen
+            while p < off + elen:
+                itype, _, ilen = struct.unpack_from("<BBH", buf, p)
+                if ilen < 4:      # an info record shorter than its own header would never advance: skip the rest of this event, visibly
+                    self.stats["errors"] += 1; self.errors.append(f"fanotify info record with impossible length {ilen}"); break
+                if itype in (INFO_DFID_NAME, INFO_OLD_DFID_NAME, INFO_NEW_DFID_NAME):
+                    names[itype] = self._decode(buf, p, ilen)
+                p += ilen
+            off += elen
+            try: self._notify_event(mask, pid, names)
+            except Exception as e:
+                self.stats["errors"] += 1; self.errors.append(repr(e))
+        self._busy_notify = False
 
     def _decode(self, buf, p, ilen):
         hb, = struct.unpack_from("<I", buf, p + 12)

@@ -7,8 +7,8 @@ That is what keeps a spreadsheet of order numbers from being called regulated da
 import io, re, unicodedata, zipfile
 from dataclasses import dataclass, field
 
-_CARD_SEP = r"[ \t,/_:\-.\u00a0\u2009\u202f\r\n\u00b7\u3000]"
-CARD = re.compile(rf"(?<![\d-])(?:\d+{_CARD_SEP}?){{1,60}}(?![\d-])")
+_CARD_SEP = r"[ \t,/_:\-.;|\u00a0\u2009\u202f\r\n\u00b7\u3000\u2007\u00ad\u200b]"
+CARD = re.compile(rf"(?<![\d-])(?:\d+(?:{_CARD_SEP}+)?){{1,60}}(?![\d-])")
 IBAN = re.compile(r"\b[A-Za-z]{2}\d{2}[A-Za-z0-9]{11,30}\b|\b[A-Za-z]{2}\d{2}(?:[ ][A-Za-z0-9]{1,4}){3,8}\b")
 SSN = re.compile(r"(?<![\d-])(\d{3})-(\d{2})-(\d{4})(?![\d-])")
 AADHAAR = re.compile(r"(?<![\d-])([2-9]\d{3})[ -]?(\d{4})[ -]?(\d{4})(?![\d-])")

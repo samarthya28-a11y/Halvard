@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.10.8 - 2026-10-18
+Review follow-up. **Built** in the Python reference and in the Stage A Rust guard. This is not a shippable endpoint, and there is still no kernel driver.
+- Decoy placement treats a forbidden root as that folder and its children. `/run` does not refuse `/runner`, and `/opt` does not refuse `/optical`. `/var`, `/opt`, `/root`, and `/run`, including `/var/home`, stay refused.
+- Card groups are still one card when the separator is a semicolon, a pipe, a figure space, a soft hyphen, a zero-width space, or a comma followed by a space. Unread files stay regulated. This commit does not add a PDF reader.
+- Keeper matches a name token shorter than four characters in its own case. "Bo" is still hidden. "An" does not hide "an", and "Jo Do" does not hide "do".
+- The Linux fanotify stand-in counts an error and stops the buffer when an event is shorter than its header, or skips the rest of an event when an info record is shorter than four bytes.
+- The Windows guard trusts MsMpEng only when the image path is under a Defender folder. A bare name passed as trust is still trusted in any folder. An empty path still leaves the protected system names unfrozen. A known path outside the Windows folder does not protect a program named svchost. A changed process start time forgets that pid. The ETW path reads the full image path and the process start time. The minifilter is not in this commit.
+- Continuous integration runs the Python suite on Linux and Windows, the fanotify tests as root on Linux, and the Rust tests on Windows.
+- Limits that stay limits: a file over the journal cap, and a name the journal excludes, can be missing from a complete report; deleting the log, the head, and the witness together leaves a new log with nothing to check; legal hold lives in memory on one log object; several residual lines are fixed text; the reference RSA private exponent and the connector HMAC key are constants in this tree; fail-open rows are one per event and are not cleared; the install manifest still says `HalvardSvc` while the existing WiX service is `HalvardGuard`, and the manifest is not what the installer reads.
+
 ## 0.10.7 - 2026-10-17
 Slice 7 — Windows contract, still not a driver (features 1 and 2). **Specified, native component not in this commit.**
 - Windows sensor and installer are specified and fixture-tested. They are not built.

@@ -96,6 +96,21 @@ class KeeperWords(unittest.TestCase):
         self.assertIn("Annual", out)
         self.assertIn("boat", out)
 
+    def test_a_short_name_does_not_hide_the_same_letters_in_another_case(self):
+        w = World8(); cp = w.p.tenants["acme"].cp
+        cp.hr.add(HRRecord("p:an", "An Nguyen", "An.Nguyen@acme.com", "anguyen", "active", "eng", None, 0, email="an.nguyen@acme.com"))
+        cp.hr.add(HRRecord("p:jo", "Jo Do", "Jo.Do@acme.com", "jdo", "active", "eng", None, 0, email="jo.do@acme.com"))
+        d = KeeperDesk(w.p); d.hire("k1", "eu-west"); d.assign("k1", "acme")
+        d.set_charter(w.m("acme", "owner"), ["suspend_ai_agent"], see_people=False)
+        text = "An Nguyen sent an annual plan. Jo Do said do not open it."
+        out = d._redact(text, w.p.tenants["acme"], d.charters["acme"])
+        self.assertNotIn("Nguyen", out)
+        self.assertNotRegex(out, r"(?<!\w)An(?!\w)")
+        self.assertNotRegex(out, r"(?<!\w)Jo(?!\w)")
+        self.assertNotRegex(out, r"(?<!\w)Do(?!\w)")
+        self.assertRegex(out, r"(?<!\w)an(?!\w)")
+        self.assertRegex(out, r"(?<!\w)do(?!\w)")
+
 
 class RefusalAndResidual(unittest.TestCase):
     def test_a_non_member_export_is_refused_in_that_companys_ledger(self):

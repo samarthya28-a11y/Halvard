@@ -11,10 +11,10 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Mutex;
 use std::time::Instant;
 use windows_sys::core::GUID;
-use windows_sys::Win32::Foundation::{CloseHandle, ERROR_ACCESS_DENIED, ERROR_ALREADY_EXISTS, ERROR_SUCCESS};
+use windows_sys::Win32::Foundation::{CloseHandle, ERROR_ACCESS_DENIED, ERROR_ALREADY_EXISTS, ERROR_SUCCESS, FILETIME};
 use windows_sys::Win32::System::Console::SetConsoleCtrlHandler;
 use windows_sys::Win32::System::Diagnostics::Etw::*;
-use windows_sys::Win32::System::Threading::{OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION};
+use windows_sys::Win32::System::Threading::{GetProcessTimes, OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION};
 
 const SESSION: &str = "HalvardGuard";
 const KEYWORDS: u64 = 0x80 | 0x200 | 0x400 | 0x800 | 0x1000; // create | write | delete | rename | create-new-file
@@ -57,21 +57,57 @@ unsafe extern "system" fn ctrl_handler(_: u32) -> i32 {
     1
 }
 
-fn image_name(pid: u32) -> String {
+/// Full image path of a process, or empty when it cannot be opened (protected system processes).
+fn image_full(pid: u32) -> String {
     unsafe {
         let h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
         if h.is_null() {
             return String::new();
         }
-        let mut buf = [0u16; 520];
+        let mut buf = [0u16; 1040];
         let mut len = buf.len() as u32;
         let ok = QueryFullProcessImageNameW(h, 0, buf.as_mut_ptr(), &mut len);
         CloseHandle(h);
-        if ok == 0 {
-            return String::new();
+        if ok == 0 { String::new() } else { String::from_utf16_lossy(&buf[..len as usize]) }
+    }
+}
+
+/// When the process started (FILETIME as a number), or 0 if unknown. A reused process number has a different start time.
+fn start_time(pid: u32) -> u64 {
+    unsafe {
+        let h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if h.is_null() {
+            return 0;
         }
-        let full = String::from_utf16_lossy(&buf[..len as usize]);
-        full.rsplit('\\').next().unwrap_or("").to_string()
+        let z = FILETIME { dwLowDateTime: 0, dwHighDateTime: 0 };
+        let (mut c, mut x, mut k, mut u) = (z, z, z, z);
+        let ok = GetProcessTimes(h, &mut c, &mut x, &mut k, &mut u);
+        CloseHandle(h);
+        if ok == 0 { 0 } else { ((c.dwHighDateTime as u64) << 32) | c.dwLowDateTime as u64 }
+    }
+}
+
+/// Process identity cache validated by start time: refreshed whenever a process number turns out to belong to a different program.
+#[derive(Default)]
+struct Identity(HashMap<u32, (u64, String, String)>);
+impl Identity {
+    fn refresh(&mut self, pid: u32) -> u64 {
+        let s = start_time(pid);
+        if self.0.len() > 8192 {
+            self.0.clear();
+        }
+        if self.0.get(&pid).map(|e| e.0 != s || s == 0).unwrap_or(true) {
+            let full = image_full(pid);
+            let name = full.rsplit('\\').next().unwrap_or("").to_string();
+            self.0.insert(pid, (s, name, full));
+        }
+        s
+    }
+    fn name(&self, pid: u32) -> String {
+        self.0.get(&pid).map(|e| e.1.clone()).unwrap_or_default()
+    }
+    fn path(&self, pid: u32) -> String {
+        self.0.get(&pid).map(|e| e.2.clone()).unwrap_or_default()
     }
 }
 
@@ -218,17 +254,11 @@ unsafe extern "system" fn on_record(rec: *mut EVENT_RECORD) {
 /// Runs until Ctrl+C. Errors are plain sentences, including the elevation hint.
 pub fn run(tripwires: Vec<String>, trust: Vec<String>, debug: bool) -> Result<(), String> {
     DEBUG.store(debug, Ordering::Relaxed);
-    let mut guard = Guard::new(&tripwires, &trust, std::process::id(), Box::new({
-        let cache: Mutex<HashMap<u32, String>> = Mutex::new(HashMap::new());
-        move |pid| {
-            let mut c = cache.lock().unwrap();
-            if c.len() > 4096 {
-                c.clear();
-            }
-            c.entry(pid).or_insert_with(|| image_name(pid)).clone()
-        }
-    }))
-    .with_content(Box::new(DiskContent)); // turns the behavioral detector on
+    let ident = std::sync::Arc::new(Mutex::new(Identity::default()));
+    let (i1, i2, i3) = (ident.clone(), ident.clone(), ident);
+    let mut guard = Guard::new(&tripwires, &trust, std::process::id(), Box::new(move |pid| i1.lock().unwrap().name(pid)))
+        .with_identity(Box::new(move |pid| i2.lock().unwrap().path(pid)), Box::new(move |pid| i3.lock().unwrap().refresh(pid)))
+        .with_content(Box::new(DiskContent)); // turns the behavioral detector on
     // "before" pictures: remember the first bytes of the files in the folders that hold tripwires (those folders are what needs protecting)
     let mut warmed = 0;
     let mut seen_dirs = std::collections::HashSet::new();

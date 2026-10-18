@@ -64,6 +64,8 @@ pub struct OpCtx<'a> {
     pub now: f64,
     pub pid: u32,
     pub proc_name: &'a str,
+    /// decided by the caller from the process's identity (full path), not its name alone; the brain's own name list still applies for replayed fixtures
+    pub trusted: bool,
     pub op: Op,
     pub path: &'a str,
     pub dst: Option<&'a str>,
@@ -96,6 +98,12 @@ impl Brain {
     pub fn add_tripwire(&mut self, path: &str) {
         self.tripwires.insert(key(path));
     }
+    /// A process number was reused by a different program: nothing known about the old one applies to the new one.
+    pub fn forget(&mut self, pid: u32) {
+        self.blocked.remove(&pid);
+        self.detector.reset(pid);
+        self.recent_highent.remove(&pid);
+    }
     pub fn trust_name(&mut self, name: &str) {
         self.trusted_names.insert(name.to_lowercase());
     }
@@ -111,6 +119,9 @@ impl Brain {
     /// Full judgement of one operation: tripwire gate first, then the behavioral detector. A detector verdict lets THIS operation stand (it already
     /// happened) and blocks the process from the next one on, exactly like the Python reference; the caller freezes the process when a verdict is returned.
     pub fn on_op(&mut self, c: &OpCtx) -> (Decision, Option<Verdict>) {
+        if c.trusted {
+            return (Decision::Allow, None); // the caller verified who this is (full path or the owner's explicit choice): neither the tripwire gate nor the detector applies
+        }
         let mut paths = vec![c.path];
         paths.extend(c.dst);
         let d = self.decide(c.pid, c.proc_name, c.op, &paths);

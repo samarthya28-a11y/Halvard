@@ -105,7 +105,9 @@ class KeeperDesk:
                     tokens.extend(part for part in n.split() if len(part) >= 2)
             repl = f"[person {opaque(r.person)[2:6]}]"
             for n in sorted(set(tokens), key=len, reverse=True):
-                text = re.sub(rf"(?<!\w){re.escape(n)}(?!\w)", repl, text, flags=re.IGNORECASE)
+                # A token shorter than 4 characters keeps its own case, so "An" does not hide "an" and "Bo" is still hidden.
+                flags = re.IGNORECASE if len(n) >= 4 else 0
+                text = re.sub(rf"(?<!\w){re.escape(n)}(?!\w)", repl, text, flags=flags)
         return text
 
     def queue(self, crew):

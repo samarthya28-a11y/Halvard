@@ -1,5 +1,5 @@
 """Slice 2 — decoys, freeze safety, and unread or disguised regulated data."""
-import os, tempfile, unittest
+import os, tempfile, unittest, unittest.mock
 from pathlib import Path
 from helpers import *
 from halvard.vaultline.classifiers import Classifier
@@ -7,7 +7,8 @@ from halvard.vaultline.dlp import decide
 from halvard.ward.agent import Blocked, EgressBlocked
 
 FIX = Path(__file__).resolve().parent / "fixtures" / "dlp"
-CARD_SEPS = ("card-tab.txt", "card-comma.txt", "card-slash.txt", "card-underscore.txt", "card-colon.txt", "card-middot.txt", "card-ideographic-space.txt")
+CARD_SEPS = ("card-tab.txt", "card-comma.txt", "card-slash.txt", "card-underscore.txt", "card-colon.txt", "card-middot.txt", "card-ideographic-space.txt",
+             "card-semicolon.txt", "card-pipe.txt", "card-figure-space.txt", "card-soft-hyphen.txt", "card-zwsp.txt", "card-comma-space.txt")
 
 
 class DecoyRoots(unittest.TestCase):
@@ -21,18 +22,74 @@ class DecoyRoots(unittest.TestCase):
             self.assertIn("operating-system", why[root], why)
             self.assertFalse(os.path.exists(f"/{root}/halvard-should-not-create.xlsx"))
 
+    def test_a_name_that_only_begins_with_a_forbidden_root_is_not_an_operating_system_folder(self):
+        from halvard.ward.agent import WardAgent
+        self.assertTrue(WardAgent._os_folder("/run/halvard"))
+        self.assertTrue(WardAgent._os_folder("/var/home/halvard"))
+        self.assertTrue(WardAgent._os_folder("/opt/halvard"))
+        self.assertFalse(WardAgent._os_folder("/runner/halvard"))
+        self.assertFalse(WardAgent._os_folder("/optical/halvard"))
+        self.assertFalse(WardAgent._os_folder("c:/windows-old/halvard"))
+        self.assertTrue(WardAgent._os_folder("c:/windows/system32/halvard"))
+        tmp = tempfile.mkdtemp()
+        specs = [
+            {"id": "runner", "path": "/runner/halvard-decoy.xlsx", "kind": "encryption"},
+            {"id": "optical", "path": "/optical/halvard-decoy.xlsx", "kind": "encryption"},
+            {"id": "varhome", "path": "/var/home/halvard-should-not-create.xlsx", "kind": "encryption"},
+        ]
+        a, host, clock, fs = make_agent(tmp, tripwires=specs)
+        why = {e["public"]["tripwire"]: e["public"]["why"] for e in a.spool.entries() if e["kind"] == "ward.tripwire_skipped"}
+        self.assertNotIn("operating-system", why["runner"])
+        self.assertNotIn("operating-system", why["optical"])
+        self.assertIn("operating-system", why["varhome"])
+        self.assertFalse(os.path.exists("/runner/halvard-decoy.xlsx"))
+        self.assertFalse(os.path.exists("/optical/halvard-decoy.xlsx"))
+        self.assertFalse(os.path.exists("/var/home/halvard-should-not-create.xlsx"))
+
     def test_an_unwritable_directory_is_skipped_and_later_decoys_still_run(self):
+        import builtins
         tmp = tempfile.mkdtemp(); locked = Path(tmp) / "locked"; locked.mkdir(); os.chmod(locked, 0o555)
         good = str(Path(tmp) / "docs"); os.mkdir(good); good_file = str(Path(good) / "!000-ok.xlsx")
         bad = str(locked / "!000-x.xlsx")
+        real_open = builtins.open
+        def guarded(path, mode="r", *a, **k):
+            # chmod 0o555 does not remove write on Windows, or for root. When the folder is still writable, the exclusive create is what fails.
+            same = os.path.normcase(os.path.abspath(path)).replace("\\", "/") == os.path.normcase(os.path.abspath(bad)).replace("\\", "/")
+            if same and "x" in str(mode) and os.access(locked, os.W_OK):
+                raise PermissionError(13, "Permission denied")
+            return real_open(path, mode, *a, **k)
         try:
-            a, host, clock, fs = make_agent(tmp, tripwires=[{"id": "bad", "path": bad, "kind": "encryption"}, {"id": "ok", "path": good_file, "kind": "encryption"}])
-            a._place_tripwires()
+            with unittest.mock.patch("builtins.open", guarded):
+                a, host, clock, fs = make_agent(tmp, tripwires=[{"id": "bad", "path": bad, "kind": "encryption"}, {"id": "ok", "path": good_file, "kind": "encryption"}])
         finally:
             os.chmod(locked, 0o755)
         self.assertTrue(os.path.exists(good_file))
+        self.assertFalse(os.path.exists(bad))
         why = {e["public"]["tripwire"]: e["public"]["why"] for e in a.spool.entries() if e["kind"] == "ward.tripwire_skipped"}
         self.assertIn("bad", why)
+
+    def test_a_folder_that_stays_writable_still_skips_when_create_is_refused(self):
+        """Windows and root leave a mode-555 directory writable. The exclusive create is what must fail, and the next decoy still runs."""
+        import builtins
+        tmp = tempfile.mkdtemp(); locked = Path(tmp) / "locked"; locked.mkdir()
+        good = str(Path(tmp) / "docs"); os.mkdir(good); good_file = str(Path(good) / "!000-ok.xlsx")
+        bad = str(locked / "!000-x.xlsx")
+        real_open, real_access = builtins.open, os.access
+        def access(path, mode, *a, **k):
+            if os.path.normcase(os.path.abspath(path)) == os.path.normcase(os.path.abspath(locked)) and mode == os.W_OK:
+                return True
+            return real_access(path, mode, *a, **k)
+        def guarded(path, mode="r", *a, **k):
+            same = os.path.normcase(os.path.abspath(path)).replace("\\", "/") == os.path.normcase(os.path.abspath(bad)).replace("\\", "/")
+            if same and "x" in str(mode) and os.access(locked, os.W_OK):
+                raise PermissionError(13, "Permission denied")
+            return real_open(path, mode, *a, **k)
+        with unittest.mock.patch("os.access", access), unittest.mock.patch("builtins.open", guarded):
+            a, host, clock, fs = make_agent(tmp, tripwires=[{"id": "bad", "path": bad, "kind": "encryption"}, {"id": "ok", "path": good_file, "kind": "encryption"}])
+        self.assertTrue(os.path.exists(good_file))
+        self.assertFalse(os.path.exists(bad))
+        why = {e["public"]["tripwire"]: e["public"]["why"] for e in a.spool.entries() if e["kind"] == "ward.tripwire_skipped"}
+        self.assertIn("cannot create", why["bad"])
 
 
 class FreezeSafety(unittest.TestCase):
