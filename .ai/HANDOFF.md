@@ -30,3 +30,6 @@ Pending request to owner: run `etw_smoke.ps1` and `msi_smoke.ps1` elevated, read
 
 ## Next steps (recommended order)
 1. Owner runs the elevated smoke tests; fix whatever they show. 2. Give Cursor docs/27. 3. Code-signing certificate + legal entity + trademark check on "Halvard". 4. Stage B minifilter (journal/rollback). 5. Replace the placeholder license, then MSVC toolchain, signing, 30-day pilot soak.
+
+## Review of Cursor's PR #2 (done 2026-10-18)
+Branch `cursor/assurance-slices-0dae` (v0.10.7, 7 slices) sits on top of our v0.9.2. Full report: docs/28-review-of-pr2-slices.md. Windows run: 595 tests, 1 failure (a chmod-based test that cannot work on Windows or as root), 5 skips (symlinks, fanotify module, perf). Main gaps found: ledger wipe check hollow if `.witness` is also deleted; legal-hold pin not durable; rename-over destination and journal-excluded files not named on the incident page; coverage rows unbounded; residual lines static; DLP separators and over-broad "unread = regulated"; identity matching never gets hash/publisher on the real Linux host; connector and RSA keys are constants in source. My own batch 2/3 lives on branch `claude/review-batch-2-3` (overlaps PR #2 slices 2, 3, 5): decide which to keep before merging anything. A git worktree of the PR is at ..\Halvard-review (remove with `git worktree remove --force ..\Halvard-review`).
