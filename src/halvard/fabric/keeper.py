@@ -97,7 +97,12 @@ class KeeperDesk:
     def _redact(self, text, rec, ch):
         if ch.see_people: return text
         for r in rec.cp.hr.records.values():
-            for n in sorted(filter(None, (r.name, r.email, r.upn, r.sam, r.person)), key=len, reverse=True): text = re.sub(re.escape(n), f"[person {opaque(r.person)[2:6]}]", text, flags=re.IGNORECASE)
+            tag = f"[person {opaque(r.person)[2:6]}]"
+            whole = [x for x in (r.name, r.email, r.upn, r.sam, r.person) if x]
+            parts = [t for t in re.split(r"[\s,.\-_'’]+", r.name or "") if len(t) >= 3]       # a first or family name on its own is still a person
+            for n in sorted(set(whole + parts), key=len, reverse=True):
+                # whole words only: "Ann" must not turn "Annual" into "[person]ual". Very short names match only as written (case-sensitive) so ordinary words survive.
+                text = re.sub(r"(?<!\w)" + re.escape(n) + r"(?!\w)", tag, text, flags=re.IGNORECASE if len(n) >= 4 else 0)
         return text
 
     def queue(self, crew):

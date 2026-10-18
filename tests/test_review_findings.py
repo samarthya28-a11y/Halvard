@@ -105,6 +105,16 @@ class TripwireFindings(unittest.TestCase):
         self.assertEqual(Path(trap).read_bytes(), b"USER-EDITED-AFTER-PLACEMENT")
         self.assertEqual(sorted(x.name for x in d.iterdir()), ["!000-budget.xlsx"])
 
+    def test_system_and_service_folders_are_never_used_and_never_raise(self):
+        """Medium: /var/tmp got a decoy and /opt raised PermissionError out of _place_tripwires, skipping every later tripwire."""
+        tmp = tempfile.mkdtemp(); d = Path(tmp) / "docs"; d.mkdir(); good = str(d / "!000-ok.xlsx")
+        specs = [{"id": f"s{i}", "path": p, "kind": "encryption"} for i, p in enumerate(["/opt/halvard-tw-probe.txt", "/var/tmp/halvard-tw-probe.txt", "/run/halvard-tw-probe.txt", "/var/lib/halvard-tw-probe.txt"])]
+        a, host, clock, fs = make_agent(tmp, tripwires=specs + [{"id": "ok", "path": good, "kind": "encryption"}])
+        self.assertTrue(os.path.exists(good), "the later, valid tripwire is still placed")
+        why = {e["public"]["tripwire"]: e["public"]["why"] for e in a.spool.entries() if e["kind"] == "ward.tripwire_skipped"}
+        self.assertEqual(set(why), {"s0", "s1", "s2", "s3"})
+        self.assertTrue(all("operating-system" in w for w in why.values()), why)
+
     def test_one_unusable_folder_does_not_stop_the_other_tripwires_from_being_placed(self):
         """Medium: a decoy in a folder we may not write raised out of _place_tripwires and skipped every later one."""
         tmp = tempfile.mkdtemp(); d = Path(tmp) / "docs"; d.mkdir(); good = str(d / "!000-ok.xlsx")
@@ -114,6 +124,14 @@ class TripwireFindings(unittest.TestCase):
         self.assertTrue(os.path.exists(good))
         why = {e["public"]["tripwire"]: e["public"]["why"] for e in a.spool.entries() if e["kind"] == "ward.tripwire_skipped"}
         self.assertIn("bad", why)
+
+
+class SensorGuards(unittest.TestCase):
+    def test_a_malformed_fanotify_length_cannot_spin_the_reader_forever(self):
+        """Medium: an event length of 0 left the read offset where it was. Checked on the source, because the loop needs root and the kernel to run for real."""
+        src = (Path(__file__).resolve().parent.parent / "src" / "halvard" / "platforms" / "linux.py").read_text(encoding="utf-8")
+        self.assertEqual(src.count("impossible length"), 3, "all three parsing loops (permission events, notification events, info records) guard against a zero length")
+        self.assertIn('"pending_dropped"', src, "dropping the oldest pending open is counted, not silent")
 
 
 class GatewayFindings(unittest.TestCase):
@@ -138,6 +156,15 @@ class GatewayFindings(unittest.TestCase):
         r2 = g.call(agent_id, b, "files", "read", {"target": "/reports/q1.csv"}); self.assertEqual(r2["decision"], "allow")
         r3 = g.call(agent_id, b, "mail", "send_mail", {"target": "someone@outside.test", "data": w.cp.lumen.tools.files["/reports/notes.txt"]})
         self.assertEqual((r3["decision"], r3["rule"]), ("ask", "agent-untrusted-context"), "same agent, brand-new session id: the earlier web page still counts")
+
+    def test_a_session_that_already_existed_is_tainted_by_content_another_session_read(self):
+        """The merge at evaluation time: session B was opened BEFORE session A read the page, so B never copied the taint at creation."""
+        w = self.world(); g = w.cp.lumen.gateway; agent_id = "report-bot"
+        b = g.session(agent_id, "sess-B-opened-first")
+        a = g.session(agent_id, "sess-A"); g.ingest(a, "web")
+        self.assertFalse(b.taint, "precondition: B has no taint of its own")
+        r = g.call(agent_id, b, "mail", "send_mail", {"target": "someone@outside.test", "data": w.cp.lumen.tools.files["/reports/notes.txt"]})
+        self.assertEqual((r["decision"], r["rule"]), ("ask", "agent-untrusted-context"))
 
     def test_a_person_can_clear_the_agents_taint(self):
         w = self.world(); g = w.cp.lumen.gateway; agent_id = "report-bot"
@@ -189,7 +216,8 @@ class LedgerFindings(unittest.TestCase):
         fresh = self.log(d)
         self.assertEqual(fresh.verify(), (True, []), "locally there is nothing left to notice: that is the hole")
         ok, problems = fresh.verify(witnessed=seen[-1])
-        self.assertFalse(ok); self.assertTrue(any("off-box witness" in p for p in problems), problems)
+        self.assertFalse(ok)
+        self.assertTrue(any("log ends at seq 0 but the off-box witness holds seq 5" in p for p in problems), problems)      # the specific 'log is shorter than the witness' check, not just any witness message
 
     def test_a_healthy_log_verifies_against_its_witness_and_a_rewritten_entry_does_not(self):
         d = tempfile.mkdtemp(); seen = []; l = self.log(d, seen)
@@ -220,6 +248,15 @@ class FreezeFindings(unittest.TestCase):
             for pid in (0, 1, 2):
                 with self.assertRaises(PermissionError): h.suspend(pid)
                 with self.assertRaises(PermissionError): h.terminate(pid)
+            k.assert_not_called()
+
+    def test_signalling_a_child_of_kthreadd_is_refused(self):
+        """The kernel-thread check must actually be used by the signal path, not just exist."""
+        import signal, unittest.mock as m
+        h = self.host()
+        with m.patch.object(signal, "SIGSTOP", 19, create=True), m.patch.object(signal, "SIGCONT", 18, create=True), m.patch.object(signal, "SIGKILL", 9, create=True),              m.patch("os.kill") as k, m.patch("pathlib.Path.read_text", side_effect=lambda *a, **kw: "9 (kworker/0:1) I 2 0 0 0"):
+            with self.assertRaises(PermissionError): h.suspend(9)
+            with self.assertRaises(PermissionError): h.terminate(9)
             k.assert_not_called()
 
     def test_a_child_of_kthreadd_is_a_kernel_thread_and_an_ordinary_process_is_not(self):

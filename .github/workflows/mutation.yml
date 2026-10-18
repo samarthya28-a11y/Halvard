@@ -1,0 +1,19 @@
+name: mutation-sweep
+
+# Removes each protective behaviour on a throw-away copy and requires a named test to fail. About 17 minutes, so weekly and on demand, not on every push.
+# Needs root: the Linux kernel-sensor mutants are only killed by the root-only fanotify tests.
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Mutation sweep as root
+        run: sudo -E env "PATH=$PATH" python -W ignore tools/mutation_check.py

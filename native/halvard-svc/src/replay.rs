@@ -108,6 +108,7 @@ pub fn run(fx: &Fixture) -> (Vec<(u64, bool)>, Brain) {
             now,
             pid: pid as u32,
             proc_name: &name_of(pid),
+            trusted: false,
             op,
             path,
             dst,

@@ -4,10 +4,13 @@ Every detector validates, not just pattern-matches: card numbers must pass the L
 IBANs must pass mod-97, Indian Aadhaar numbers must pass the Verhoeff check, US SSNs must not use the ranges that are never issued.
 That is what keeps a spreadsheet of order numbers from being called regulated data. Confidence is rule-assigned and says why.
 """
-import io, re, zipfile
+import io, re, unicodedata, zipfile, zlib
 from dataclasses import dataclass, field
 
-CARD = re.compile(r"(?<![\d-])(?:\d+[ \-.\u00a0\u2009\u202f\r\n]?){1,60}(?![\d-])")
+# every way people and exports separate the groups of a card number: space, dash, dot, no-break and thin spaces, new line, tab, comma, slash,
+# underscore, colon, middle dot, ideographic space
+SEP = r"[ \-.\u00a0\u2009\u202f\r\n\t,/_:\u00b7\u3000\u2000-\u200a]"
+CARD = re.compile(rf"(?<![\d-])(?:\d+{SEP}?){{1,60}}(?![\d-])")
 IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{2,4}){3,8}\b")
 SSN = re.compile(r"(?<![\d-])(\d{3})-(\d{2})-(\d{4})(?![\d-])")
 AADHAAR = re.compile(r"(?<![\d-])([2-9]\d{3})[ -]?(\d{4})[ -]?(\d{4})(?![\d-])")
@@ -37,8 +40,9 @@ def luhn_ok(num: str) -> bool:
 def cards_in(run: str) -> int:
     """Count valid card numbers inside a run of digit groups. Windows are taken only at the spaces and dashes that were already there,
     so a long unbroken number such as an order id is never sliced into lucky pieces."""
-    groups = [g for g in re.split(r"[ \-.\u00a0\u2009\u202f\r\n]+", run) if g]; found, i = 0, 0
+    groups = [g for g in re.split(SEP + "+", run) if g]; found, i = 0, 0
     while i < len(groups):
+        if len(groups[i]) < 4: i += 1; continue      # no card format starts with a group of fewer than four digits: skipping these keeps number-heavy CSVs fast
         for j in range(min(len(groups), i + 5), i, -1):
             if j - i > 1 and any(len(g) > 6 for g in groups[i:j]): continue      # a card written in groups has short groups (4-4-4-4, 4-6-5); two long numbers side by side are not one card
             if card_plausible("".join(groups[i:j])): found += 1; i = j; break
@@ -56,6 +60,16 @@ def iban_ok(s: str) -> bool:
     s = s.replace(" ", "")
     if not 15 <= len(s) <= 34 or (s[:2] in IBAN_LEN and len(s) != IBAN_LEN[s[:2]]): return False
     return int("".join(str(int(c, 36)) for c in s[4:] + s[:4])) % 97 == 1
+
+
+def count_ibans(text: str) -> int:
+    """IBANs in any letter case. The pattern can run on into following words ("... 5432 PLEASE"), so the longest prefix of whole groups that passes the checksum is the IBAN."""
+    n = 0
+    for m in IBAN.finditer(text.upper()):
+        parts = m.group(0).split(" ")
+        for k in range(len(parts), 0, -1):
+            if iban_ok(" ".join(parts[:k])): n += 1; break
+    return n
 
 
 def verhoeff_ok(num: str) -> bool:
@@ -92,21 +106,86 @@ class Classification:
 LABEL_SENSITIVITY = {"pci_card": "regulated", "iban": "confidential", "us_ssn": "regulated", "in_aadhaar": "regulated", "in_pan": "confidential", "secret_key": "regulated", "secret_generic": "confidential", "custom": "confidential"}
 
 
-def extract_text(name: str, data: bytes):
-    """(text, reason_if_unreadable). Plain text, CSV/JSON/XML, and OOXML (docx/xlsx/pptx) are read; other formats are reported, not guessed."""
+def ascii_digits(text: str) -> str:
+    """Digits of any script (fullwidth, Arabic-Indic, Devanagari ...) become 0-9, so the checksum and prefix rules see what a person sees."""
+    if text.isascii(): return text
+    return "".join(str(unicodedata.decimal(ch)) if ord(ch) > 127 and unicodedata.category(ch) == "Nd" else ch for ch in text)
+
+
+_PDF_STREAM = re.compile(rb"stream\r?\n(.*?)\r?\nendstream", re.S)
+_PDF_LIT = re.compile(rb"\(((?:\\.|[^\\()])*)\)", re.S)
+_PDF_HEX = re.compile(rb"<([0-9A-Fa-f\s]{4,})>")
+_PDF_ESC = {ord("n"): b"\n", ord("r"): b"\r", ord("t"): b"\t", ord("b"): b"\b", ord("f"): b"\f", ord("("): b"(", ord(")"): b")", 0x5C: b"\\"}
+
+
+def _pdf_unescape(b: bytes) -> bytes:
+    out, i = bytearray(), 0
+    while i < len(b):
+        if b[i] == 0x5C and i + 1 < len(b):
+            nxt = b[i + 1]
+            if nxt in _PDF_ESC: out += _PDF_ESC[nxt]; i += 2; continue
+            if 0x30 <= nxt <= 0x37:
+                j = i + 1
+                while j < len(b) and j < i + 4 and 0x30 <= b[j] <= 0x37: j += 1
+                out.append(int(b[i + 1:j], 8) & 0xFF); i = j; continue
+            i += 1; continue
+        out.append(b[i]); i += 1
+    return bytes(out)
+
+
+def pdf_text(data: bytes):
+    """Best-effort text of a PDF: the text strings of every content stream (inflated when compressed). Fonts that map codes to other characters, scans and
+    encrypted files are NOT readable this way; for those the caller still reports 'unscannable'. Returns the text, or None when nothing readable was found."""
+    chunks = [data]
+    for m in _PDF_STREAM.finditer(data):
+        body = m.group(1)
+        if len(body) > 20 << 20: continue
+        try: chunks.append(zlib.decompress(body))
+        except zlib.error:
+            try: chunks.append(zlib.decompressobj(-15).decompress(body))
+            except zlib.error: pass
+    parts = []
+    for c in chunks:
+        for m in _PDF_LIT.finditer(c):
+            t = _pdf_unescape(m.group(1))
+            if len(t) >= 2 and sum(32 <= b < 127 for b in t) / len(t) > 0.8: parts.append(t.decode("latin-1"))
+        for m in _PDF_HEX.finditer(c):
+            h = re.sub(rb"\s+", b"", m.group(1))
+            if len(h) % 2: continue
+            raw = bytes.fromhex(h.decode())
+            t = raw.decode("utf-16-be", "ignore") if raw[:2] == b"\xfe\xff" else raw.decode("latin-1")
+            if len(t) >= 2 and sum(32 <= ord(ch) < 127 for ch in t) / len(t) > 0.8: parts.append(t)
+    text = "\n".join(parts)
+    return text if re.search(r"[A-Za-z0-9]{3,}", text) else None
+
+
+_MEDIA_EXT = (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tif", ".tiff", ".ico", ".webp", ".mp3", ".mp4", ".wav", ".mov", ".avi", ".emf", ".wmf", ".ttf", ".otf", ".woff")
+MAX_DEPTH = 3
+
+
+def extract_text(name: str, data: bytes, depth: int = 0):
+    """(text, reason_if_unreadable). Plain text, CSV/JSON/XML, PDF (best effort) and OOXML (docx/xlsx/pptx, every part, nested documents too) are read; other formats are reported, not guessed."""
     n = name.lower()
     if data[:4] == b"PK\x03\x04":
         try:
             z = zipfile.ZipFile(io.BytesIO(data))
             if any(i.flag_bits & 0x1 for i in z.infolist()): return "", "encrypted archive"
-            parts = []
+            parts, budget = [], 40 << 20
             for i in z.infolist():
-                if i.file_size > 20 << 20: continue
-                if i.filename.endswith((".xml", ".txt", ".csv", ".json")) or "sharedStrings" in i.filename:
-                    parts.append(re.sub(r"<[^>]+>", " ", z.read(i).decode("utf-8", "ignore")))
+                if i.file_size > 20 << 20 or budget <= 0 or i.filename.endswith("/"): continue
+                fn = i.filename.lower()
+                if fn.endswith(_MEDIA_EXT): continue                       # pictures, sound and fonts hold no text we could read
+                raw = z.read(i); budget -= len(raw)
+                if raw[:4] == b"PK\x03\x04" or raw[:4] == b"%PDF":         # a document inside the document: look inside it too, a few levels deep
+                    if depth < MAX_DEPTH:
+                        t, _ = extract_text(fn, raw, depth + 1); parts.append(t)
+                elif fn.endswith((".xml", ".rels")) or "sharedstrings" in fn: parts.append(re.sub(r"<[^>]+>", " ", raw.decode("utf-8", "ignore")))
+                else: parts.append(raw.decode("utf-8", "ignore") + "\n" + raw.decode("utf-16-le", "ignore"))      # any other part (.bin, .txt, .csv, embedded objects)
             return "\n".join(parts), None
         except zipfile.BadZipFile: return "", "damaged archive"
-    if data[:4] == b"%PDF": return "", "PDF text extraction is not built"
+    if data[:4] == b"%PDF":
+        t = pdf_text(data)
+        return (t, None) if t is not None else ("", "PDF text could not be read (scanned image, unusual font encoding or encrypted)")
     if data[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1": return "", "legacy Office format is not read"
     if b"\x00" in data[:4096] and not n.endswith((".txt", ".csv")): return "", "binary format"
     return data.decode("utf-8", "ignore"), None
@@ -118,7 +197,7 @@ class Classifier:
         self.max_bytes = max_bytes
 
     def classify(self, name: str, data: bytes) -> Classification:
-        text, why = extract_text(name, data[: self.max_bytes]); out = Classification(scanned_bytes=min(len(data), self.max_bytes))
+        text, why = extract_text(name, data[: self.max_bytes]); text = ascii_digits(text); out = Classification(scanned_bytes=min(len(data), self.max_bytes))
         if why: out.unscannable = why; out.sensitivity = "confidential"; return out      # a file Halvard could not read is NOT known to be harmless: it is treated as confidential and says so
         L = out.labels
         cards = 0
@@ -126,7 +205,7 @@ class Classifier:
         ctx = bool(CARD_CONTEXT.search(text))
         if cards: L["pci_card"] = {"count": cards, "confidence": round(min(0.99, (0.9 if cards >= 5 else 0.7) + (0.08 if ctx else 0)), 2),
                                     "why": f"{cards} number(s) pass the card checksum and have a real card prefix and length" + ("; card words appear nearby" if ctx else "")}
-        ib = sum(1 for m in IBAN.finditer(text) if iban_ok(m.group(0)))
+        ib = count_ibans(text)
         if ib: L["iban"] = {"count": ib, "confidence": 0.9, "why": f"{ib} bank account number(s) pass the IBAN checksum"}
         ss = sum(1 for m in SSN.finditer(text) if ssn_ok(*m.groups()))
         if ss: L["us_ssn"] = {"count": ss, "confidence": round(min(0.95, 0.6 + 0.08 * ss), 2), "why": f"{ss} value(s) in the format of a US social security number, excluding never-issued ranges"}

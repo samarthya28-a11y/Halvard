@@ -93,10 +93,16 @@ impl Content for DiskContent {
     }
 }
 
-/// Processes that must never be frozen, whatever they touch: freezing them hangs the machine.
+/// Processes that must never be frozen, whatever they touch: freezing them hangs the machine. By NAME and, when the path is known, only if they really run
+/// from the Windows folder: a program that merely calls itself svchost.exe in Downloads is not protected.
 const NEVER_FREEZE: &[&str] = &["system", "registry", "smss.exe", "csrss.exe", "wininit.exe", "winlogon.exe", "services.exe", "lsass.exe", "dwm.exe", "svchost.exe"];
-/// Trusted by default: the antivirus may legitimately quarantine a decoy.
-const DEFAULT_TRUST: &[&str] = &["msmpeng.exe"];
+const WINDOWS_DIRS: &[&str] = &["\\windows\\system32\\", "\\windows\\syswow64\\"];
+/// Trusted by default: the antivirus may legitimately quarantine a decoy. A name alone is not trust: it must run from one of its own install folders.
+const DEFAULT_TRUST: &[(&str, &[&str])] = &[("msmpeng.exe", &["\\programdata\\microsoft\\windows defender\\", "\\program files\\windows defender\\", "\\program files\\microsoft security client\\"])];
+
+fn lower(p: &str) -> String {
+    p.replace('/', "\\").to_lowercase()
+}
 const MAX_OBJECTS: usize = 100_000;
 const MAX_HEADS: usize = 200_000;
 const HEAD: usize = 512;
@@ -110,19 +116,67 @@ pub struct Guard {
     t0: Instant,
     own_pid: u32,
     name_of: Box<dyn Fn(u32) -> String + Send>,
+    path_of: Box<dyn Fn(u32) -> String + Send>,
+    start_of: Box<dyn Fn(u32) -> u64 + Send>,
+    starts: HashMap<u32, u64>,
+    /// exact full image paths the owner trusts (`--trust C:\Tools\backup.exe`)
+    trust_paths: Vec<String>,
+    /// (file name, folders it must run from; empty = any folder, only for a name the owner chose explicitly)
+    trust_rules: Vec<(String, Vec<String>)>,
     pub frozen: Vec<u32>,
 }
 
 impl Guard {
+    /// `trust` entries containing a backslash or colon are exact image paths; anything else is a bare program name (explicit, owner-chosen, any folder).
     pub fn new(tripwires: &[String], trust: &[String], own_pid: u32, name_of: Box<dyn Fn(u32) -> String + Send>) -> Guard {
         let mut brain = Brain::new();
         for t in tripwires {
             brain.add_tripwire(t);
         }
-        for t in trust.iter().map(String::as_str).chain(DEFAULT_TRUST.iter().copied()) {
-            brain.trust_name(t);
+        let mut trust_paths = Vec::new();
+        let mut trust_rules: Vec<(String, Vec<String>)> = Vec::new();
+        for t in trust {
+            if t.contains('\\') || t.contains(':') {
+                trust_paths.push(lower(t));
+            } else {
+                trust_rules.push((t.to_lowercase(), Vec::new()));
+            }
         }
-        Guard { brain, objects: HashMap::new(), heads: HashMap::new(), content: Box::new(NoContent), t0: Instant::now(), own_pid, name_of, frozen: Vec::new() }
+        for (n, dirs) in DEFAULT_TRUST {
+            trust_rules.push((n.to_string(), dirs.iter().map(|d| d.to_string()).collect()));
+        }
+        Guard {
+            brain,
+            objects: HashMap::new(),
+            heads: HashMap::new(),
+            content: Box::new(NoContent),
+            t0: Instant::now(),
+            own_pid,
+            name_of,
+            path_of: Box::new(|_| String::new()),
+            start_of: Box::new(|_| 0),
+            starts: HashMap::new(),
+            trust_paths,
+            trust_rules,
+            frozen: Vec::new(),
+        }
+    }
+
+    /// Who a process really is: its full image path and when it started. The start time tells a reused process number from the program that had it before.
+    pub fn with_identity(mut self, path_of: Box<dyn Fn(u32) -> String + Send>, start_of: Box<dyn Fn(u32) -> u64 + Send>) -> Guard {
+        self.path_of = path_of;
+        self.start_of = start_of;
+        self
+    }
+
+    fn is_trusted(&self, name: &str, path: &str) -> bool {
+        let (n, p) = (name.to_lowercase(), lower(path));
+        self.trust_paths.iter().any(|t| *t == p) || self.trust_rules.iter().any(|(rn, dirs)| *rn == n && (dirs.is_empty() || (!p.is_empty() && dirs.iter().any(|d| p.contains(d.as_str())))))
+    }
+
+    fn is_protected(&self, name: &str, path: &str, pid: u32) -> bool {
+        let (n, p) = (name.to_lowercase(), lower(path));
+        pid <= 4 || (NEVER_FREEZE.contains(&n.as_str()) && (p.is_empty() || WINDOWS_DIRS.iter().any(|d| p.contains(d))))
     }
 
     /// Turn on the behavioral detector by giving the guard a way to read file contents.
@@ -164,11 +218,22 @@ impl Guard {
         if pid == self.own_pid {
             return None;
         }
+        let start = (self.start_of)(pid);      // first: it is what tells a reused process number from the program that had it, and lets the lookups below refresh
         let process = (self.name_of)(pid);
+        let ipath = (self.path_of)(pid);
+        if start != 0 {
+            if self.starts.get(&pid).map(|old| *old != start).unwrap_or(false) {
+                self.brain.forget(pid);            // same process number, different program: the old one's blocked state, history and freeze record do not apply
+                self.frozen.retain(|p| *p != pid);
+            }
+            self.starts.insert(pid, start);
+            if self.starts.len() > 20_000 { self.starts.clear(); }
+        }
+        let trusted = self.is_trusted(&process, &ipath);
         // contents: what the file looks like now (after a write or create), and what we remembered before
         let after = if matches!(op, Op::Write | Op::Create) { self.content.head(path, SAMPLE) } else { None };
         let before = self.heads.get(&key(path)).cloned();
-        let ctx = OpCtx { now: self.t0.elapsed().as_secs_f64(), pid, proc_name: &process, op, path, dst, before_head: before.as_deref(), after_sample: after.as_deref() };
+        let ctx = OpCtx { now: self.t0.elapsed().as_secs_f64(), pid, proc_name: &process, trusted, op, path, dst, before_head: before.as_deref(), after_sample: after.as_deref() };
         let (decision, verdict) = self.brain.on_op(&ctx);
         // keep the cache current: the file now looks like `after`; a renamed file keeps its head under the new name
         match (op, &after) {
@@ -191,7 +256,7 @@ impl Guard {
         if !newly {
             return None;
         }
-        if NEVER_FREEZE.contains(&process.to_lowercase().as_str()) || pid <= 4 {
+        if self.is_protected(&process, &ipath, pid) {
             return None; // alert-only for protected system processes (the service reports it)
         }
         self.frozen.push(pid);

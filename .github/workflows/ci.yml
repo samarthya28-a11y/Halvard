@@ -1,0 +1,49 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  python-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Python suite (not root; kernel-sensor tests skip)
+        run: python -W ignore -m unittest discover -s tests
+      - name: Kernel sensor tests as root (fanotify)
+        # these 8 tests need root and fanotify; a runner that cannot provide it makes this step fail loudly rather than skip silently
+        run: sudo -E env "PATH=$PATH" python -W ignore -m unittest test_linux_sensor -v
+        working-directory: tests
+      - name: Stories run and leave the tree clean
+        run: |
+          for s in setup demo stolen-session mailed-attachment exposed-bucket data-leak patch-day ai-agent tripwires platform rogue-device; do
+            PYTHONPATH=src python -W ignore -m halvard.cli $s > /dev/null
+          done
+          test -z "$(git status --porcelain)"
+
+  python-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Python suite (Linux-only tests skip)
+        run: python -W ignore -m unittest discover -s tests
+        env: { PYTHONIOENCODING: utf-8 }
+
+  rust-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Rust tests (conformance with the Python reference fixtures, detector, guard, placement, service config)
+        run: cargo test
+        working-directory: native/halvard-svc
+      - name: Release build and size
+        run: |
+          cargo build --release
+          (Get-Item target\release\halvard-svc.exe).Length / 1MB
+        working-directory: native/halvard-svc

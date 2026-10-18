@@ -50,12 +50,19 @@ fn delete_rename_and_new_file_on_a_tripwire_freeze() {
 }
 
 #[test]
-fn trusted_and_protected_processes_are_never_frozen_and_antivirus_is_trusted_by_default() {
-    let mut g = Guard::new(&[TW.to_string()], &["Backup.exe".to_string()], 1, names(&[(300, "backup.exe"), (400, "csrss.exe"), (500, "MsMpEng.exe")]));
-    for pid in [300, 400, 500] {
+fn an_owner_trusted_name_and_a_protected_system_process_are_never_frozen() {
+    // no path is known here: a name the owner chose explicitly is trusted; a protected system name with no known path is alert-only
+    let mut g = Guard::new(&[TW.to_string()], &["Backup.exe".to_string()], 1, names(&[(300, "backup.exe"), (400, "csrss.exe")]));
+    for pid in [300, 400] {
         assert!(g.on_event(FileEvent::Delete { pid, name: NT.into() }).is_none(), "pid {pid}");
     }
     assert!(g.frozen.is_empty());
+}
+
+#[test]
+fn a_bare_antivirus_name_with_no_known_folder_is_not_trusted() {
+    let mut g = Guard::new(&[TW.to_string()], &[], 1, names(&[(500, "MsMpEng.exe")]));
+    assert!(g.on_event(FileEvent::Delete { pid: 500, name: NT.into() }).is_some(), "the name alone proves nothing");
 }
 
 #[test]

@@ -103,7 +103,7 @@ class WardAgent:
         return True
 
     # ---- tripwires (Hearth): files nobody has a reason to touch ----
-    FORBIDDEN_ROOTS = ("/etc", "/usr", "/bin", "/sbin", "/boot", "/sys", "/proc", "/dev", "/lib", "/windows", "/program files", "/programdata")
+    FORBIDDEN_ROOTS = ("/etc", "/usr", "/bin", "/sbin", "/boot", "/sys", "/proc", "/dev", "/lib", "/opt", "/run", "/snap", "/var/tmp", "/var/lib", "/var/log", "/var/spool", "/var/cache", "/windows", "/program files", "/programdata")
 
     @staticmethod
     def _twkey(path): return os.path.normcase(os.path.realpath(str(path))).replace("\\", "/")      # a link to a tripwire is the tripwire

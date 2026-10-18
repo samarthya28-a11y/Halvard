@@ -186,6 +186,8 @@ class FanotifySensor:
             off = 0
             while off + HDR.size <= len(buf):
                 elen, vers, _, mlen, mask, fd, pid = HDR.unpack_from(buf, off)
+                if elen < HDR.size:      # a malformed length would leave the offset where it is and spin forever: stop reading this buffer, visibly
+                    self.stats["errors"] += 1; self.errors.append(f"fanotify event with impossible length {elen}"); break
                 off += elen
                 if fd < 0: continue
                 try: self._perm_event(mask, fd, pid)
@@ -308,10 +310,14 @@ class FanotifySensor:
             off = 0; self._busy_notify = True
             while off + HDR.size <= len(buf):
                 elen, vers, _, mlen, mask, fd, pid = HDR.unpack_from(buf, off)
+                if elen < HDR.size:
+                    self.stats["errors"] += 1; self.errors.append(f"fanotify event with impossible length {elen}"); break
                 names = {}
                 p = off + mlen
                 while p < off + elen:
                     itype, _, ilen = struct.unpack_from("<BBH", buf, p)
+                    if ilen < 4:      # an info record shorter than its own header would never advance: skip the rest of this event, visibly
+                        self.stats["errors"] += 1; self.errors.append(f"fanotify info record with impossible length {ilen}"); break
                     if itype in (INFO_DFID_NAME, INFO_OLD_DFID_NAME, INFO_NEW_DFID_NAME):
                         names[itype] = self._decode(buf, p, ilen)
                     p += ilen

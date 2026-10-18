@@ -31,6 +31,13 @@ def scrub(o):
     return o
 
 
+def _has_pii(v) -> bool:
+    """True when a value is, or contains anywhere inside it, a personal key (any capitalisation)."""
+    if isinstance(v, dict): return any(str(k).lower() in PII_KEYS or _has_pii(x) for k, x in v.items())
+    if isinstance(v, (list, tuple)): return any(_has_pii(x) for x in v)
+    return False
+
+
 def opaque(entity: str) -> str:
     """Stable pseudonymous id for a person-linked entity (mailbox, account), so the audit subject never carries an address."""
     return "e-" + _h(entity.encode())[:12]
@@ -89,8 +96,11 @@ class AuditLog:
         data = dict(data or {})
         _check(data)
         with self._lock:
-            pub = scrub({k: v for k, v in data.items() if k not in PII_KEYS})
-            priv = {k: v for k, v in data.items() if k in PII_KEYS}
+            # personal keys go to the private half whatever their capitalisation; a field that CONTAINS a personal key at any depth moves there whole
+            pii = lambda k, v: str(k).lower() in PII_KEYS or _has_pii(v)
+            pub = scrub({k: v for k, v in data.items() if not pii(k, v)})
+            priv = {k: v for k, v in data.items() if pii(k, v)}
+            subject = scrub(subject) if isinstance(subject, str) else subject      # the subject sits in the public head: no address may ride in it
             priv["_actor"] = actor
             priv["_nonce"] = secrets.token_hex(8)
             seq = self._seq + 1

@@ -2,6 +2,16 @@
 
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
+## 0.9.3 - 2026-10-18  (branch claude/review-batch-2-3, NOT merged; overlaps Cursor's PR #2)
+Independent-review fixes, batch 2 and 3, written before Cursor's slice branch was seen. Overlaps its slices 2, 3 and 5: do not merge both blindly, reconcile.
+- **Classifier**: card separators tab, comma, slash, underscore, colon, middle dot, ideographic space, thin spaces; digits of other scripts normalised; lowercase IBAN and an IBAN followed by an uppercase word (a pre-existing miss); best-effort PDF text (inflated streams); every part of an Office file read, nested documents to three levels, media skipped. Number-heavy files scan about 4x faster. Tests: `tests/test_review_findings_2.py`.
+- **Keeper** redacts whole words only and first/family names on their own ("Ann" no longer turns "Annual" into "[person]ual"). **Audit log**: personal keys private whatever their capitalisation or nesting; subject scrubbed.
+- **Tripwires**: system and service folders (/opt, /run, /snap, /var/tmp, /var/lib ...) refused. **fanotify**: zero-length event and info records can no longer spin the reader (Linux only; checked on source, not run here).
+- **Rust**: trust by full image path or the owner's explicit name (a bare "MsMpEng.exe" is no longer trusted; the antivirus must run from its install folder); protected system process names only protected when they run from the Windows folder; process-number reuse detected by start time. 43 Rust tests.
+- **Mutation harness**: works on Windows (work folder outside AppData\Local, which the Windows profile does not journal), copies native/ and CHANGELOG, several name filters (`"A|B"`), timeouts reported as TIMEOUT (never as killed), survivors print the suite tail. 21 new mutants. Verified by re-run: killed. One earlier run labelled two of them SURVIVED and a hand-run and a re-run kill them; the cause of that false label is not established. A real gap was found and fixed (witness test too loose).
+- **CI**: `.github/workflows/ci.yml` (Linux incl. root fanotify lane, Windows Python, Rust) and a weekly mutation sweep. Not yet run on GitHub.
+- Tests: Python 559 (4 skipped), Rust 43.
+
 ## 0.9.2 - 2026-10-17
 Independent review (Cursor, against GitHub's stale copy at e9cb5ec) found real bugs in the Python reference; its Windows findings were moot (the Windows work had not been pushed). Batch 1, each with a test that FAILED before the fix (`tests/test_review_findings.py`, confirmed by temporarily reverting each fix):
 - **Data loss**: rename onto an existing file destroyed the destination on rollback. The journal now keeps the overwritten destination (`dst_pre`, database migrated in place) and restores it.
