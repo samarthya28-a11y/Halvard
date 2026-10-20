@@ -118,6 +118,10 @@ class Journal:
             self.used += size; self._known.add(d)
         return d, None, head
 
+    @staticmethod
+    def _excluded_note(note):
+        return bool(note) and note.startswith("excluded from the journal")
+
     def recently_captured(self, pid, path):
         last = self._last_cap.get(self.key(path))
         return bool(last and last[2] == pid and self.clock.now() - last[0] < self.min_interval)
@@ -144,9 +148,11 @@ class Journal:
                     head = head or h2
                     if pre:
                         self._last_cap[self.key(path)] = (now, pre, pid)
-            if op == "rename" and dst and os.path.isfile(dst):
+            if op == "rename" and dst and os.path.isfile(dst) and not (forced_note and self._excluded_note(forced_note)):
                 dst_pre, dnote, _ = self._store(dst)      # os.replace destroys the destination: keep what it held
                 if dnote: note = (note + "; " if note else "") + f"overwritten destination not kept ({dnote})"
+            if forced_note and not note:
+                note = forced_note
             cur = self.db.execute("INSERT INTO rec(ts,pid,op,path,dst,pre,note,dst_pre) VALUES(?,?,?,?,?,?,?,?)",
                                   (self.clock.now(), pid, op, path, dst, pre, note, dst_pre))
             if not reused:      # re-writes of an already-captured path are committed with the next capture
@@ -214,7 +220,13 @@ class Journal:
             if path in tainted or final in tainted:
                 continue
             if note and op in ("write", "delete", "rename"):
-                rep.not_restorable.append((path, note)); continue
+                if op == "rename" and dst and "overwritten destination not kept (" in note:
+                    inner = note.split("overwritten destination not kept (", 1)[1].rsplit(")", 1)[0]
+                    rep.not_restorable.append((dst, inner))
+                elif op == "rename" and dst and dst != path and note.startswith("excluded from the journal"):
+                    rep.not_restorable.append((dst, note))
+                if not pre:
+                    rep.not_restorable.append((path, note)); continue
             if snap and not dry_run and os.path.isfile(final):
                 tgt = snap / hashlib.sha256(final.encode()).hexdigest()
                 if not tgt.exists():

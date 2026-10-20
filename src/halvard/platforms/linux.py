@@ -66,7 +66,27 @@ class LinuxHost(SimHost):
         except (OSError, ValueError, StopIteration):
             return self.procs.get(pid)
         return {"name": comm, "user": uid, "state": {"T": "suspended", "Z": "terminated", "X": "terminated"}.get(state, "running"),
-                "exe_sha256": None, "cmdline": cmd, "ppid": ppid, "exe": exe, "started": started}
+                "exe_sha256": self._exe_hash(pid, exe, started), "cmdline": cmd, "ppid": ppid, "exe": exe, "started": started, "publisher": None}
+
+    def _exe_hash(self, pid, exe, started):
+        """Hash the image this pid is running. Linux has no publisher. A path we cannot read stays unknown."""
+        if not exe or exe.endswith(" (deleted)"): return None
+        cache = getattr(self, "_exe_hashes", None)
+        if cache is None:
+            cache = {}; self._exe_hashes = cache
+        key = (exe, started)
+        if key in cache: return cache[key]
+        if len(cache) > 1024: cache.clear()
+        try:
+            h = hashlib.sha256()
+            with open(f"/proc/{pid}/exe", "rb") as f:
+                for chunk in iter(lambda: f.read(1 << 20), b""):
+                    h.update(chunk)
+            digest = h.hexdigest()
+        except OSError:
+            digest = None
+        cache[key] = digest
+        return digest
 
     @staticmethod
     def _is_kernel_thread(pid):
@@ -272,16 +292,10 @@ class FanotifySensor:
         if a.is_blocked(pid): return FAN_DENY
         st = os.fstat(fd)
         data = os.pread(fd, min(st.st_size, 8 << 20), 0)
-        v = a.verdicts.evaluate(data, os.path.basename(path), a.online)
-        digest = hashlib.sha256(data).hexdigest()
-        if v.decision == "block" and a.bundle.prevention.get("known_bad", "enforce") == "enforce":
-            a.spool.append("ward.exec_verdict", "system", "system", a.device_id,
-                           {"decision": "block", "score": round(v.score, 2), "source": v.source, "reasons": v.reasons, "path": path,
-                            "sha256": digest, "mode": "enforce", "online": a.online, "platform": "linux"},
-                           controls=("WARD.PRE_EXECUTION_VERDICT",) + (("WARD.OFFLINE_PREVENTION",) if not a.online else ()))
-            self.work.put(lambda: a.engine.request(__import__("halvard.relay.actions", fromlist=["x"]).ActionRequest(
-                "quarantine_file", __import__("halvard.ward.agent", fromlist=["x"]).SYSTEM, [path], f"pre-execution verdict: {'; '.join(v.reasons)}",
-                automatic=True, pattern="malware_quarantine")))
+        from ..ward.agent import Blocked
+        try:
+            a.pre_execute(path, data, pid=pid)      # same gate as the reference: hash, temporary blocks, and the verdict
+        except Blocked:
             return FAN_DENY
         a.emit("process", "exec", pid, path)
         return FAN_ALLOW
@@ -294,6 +308,9 @@ class FanotifySensor:
     # ---------------- close events (no reply needed) ----------------
     def _on_close(self, pid, fd, path, wrote):
         a = self.agent; self.stats["close"] += 1
+        if wrote and self._excluded(path):
+            a.journal.before(pid, "write", path, forced_note="excluded from the journal by the platform profile, so these bytes were not kept", no_open=True)
+            return
         st = os.fstat(fd)
         rec = self.pending.pop((pid, st.st_dev, st.st_ino), None)
         if not wrote or rec is None: return

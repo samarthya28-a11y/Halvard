@@ -59,11 +59,13 @@ class WindowsSensorContract(unittest.TestCase):
 class InstallerManifestTests(unittest.TestCase):
     def test_the_install_and_update_manifests_name_the_service_the_files_and_the_rollback_rules(self):
         for m in (INSTALL_MANIFEST, UPDATE_MANIFEST):
-            self.assertEqual(m["service_name"], "HalvardSvc")
+            self.assertEqual(m["service_name"], "HalvardGuard")
             self.assertIn("halvard-svc.exe", m["files"])
             self.assertEqual(m["decoys_removed_by"], "remove")
             self.assertEqual(m["configure_failure"], "rollback")
             self.assertFalse(m["built"])
+        wxs = (Path(__file__).resolve().parent.parent / "native" / "installer" / "halvard.wxs").read_text(encoding="utf-8")
+        self.assertIn('Name="HalvardGuard"', wxs)
         self.assertEqual(INSTALL_MANIFEST["kind"], "install")
         self.assertEqual(UPDATE_MANIFEST["kind"], "update")
         self.assertNotEqual(INSTALL_MANIFEST["files"], [])

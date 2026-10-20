@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.10.9 - 2026-10-20
+Left-out reference holes from the review. **Built** in the Python reference. This is not a shippable endpoint. There is still no kernel driver and no customer KMS.
+- A file the journal excludes, including `*.tmp`, is still named on the rollback. The report is not complete. A rename onto a file over the per-file cap names that destination on its own row. The source is restored when its pre-image was kept.
+- A legal hold is stored beside the log. A new log object on the same path still has it. One of the two people can release it; compact and export refuse only while two people still hold it.
+- The witness is also written under `.halvard-witness/`. Deleting the log, the `.head`, and the witness beside the log still fails verify. Deleting that second copy as well leaves a new log with nothing local to disagree with. A remote witness service is not built.
+- A failed-open row and a stopped-heartbeat row clear on the next heartbeat. The ledger keeps both the row and the clear. A dropped pending record stays until the file is dealt with.
+- Unread bytes cannot be justified onto an unsanctioned or personal upload, an AI prompt, partner mail, or a printer. A readable card sent to a partner is unchanged: it still asks for a reason.
+- The connector HMAC is a new secret for this process. Resealing with the old published string `halvard-reference-connector-v1` does not verify. It is still not a customer KMS, and a second process does not share this secret.
+- Linux `proc` hashes the image it can read and reports no publisher. The fanotify exec hook calls `pre_execute`.
+- The install manifest service name is `HalvardGuard`, the same name the existing WiX service uses. `built` is still false. The old manifest name `HalvardSvc` disagreed with that installer.
+- Isolate names the frozen pids and still ends with the residual line. The reference RSA key is unchanged: one shared 511-bit key, and revoking it hits every verifier.
+
 ## 0.10.8 - 2026-10-18
 Review follow-up. **Built** in the Python reference and in the Stage A Rust guard. This is not a shippable endpoint, and there is still no kernel driver.
 - Decoy placement treats a forbidden root as that folder and its children. `/run` does not refuse `/runner`, and `/opt` does not refuse `/optical`. `/var`, `/opt`, `/root`, and `/run`, including `/var/home`, stay refused.

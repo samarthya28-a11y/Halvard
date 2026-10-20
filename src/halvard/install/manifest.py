@@ -3,7 +3,7 @@
 Decoys come off only when the product's remove command runs. A configure step that fails rolls the laid-down files back.
 """
 
-SERVICE_NAME = "HalvardSvc"
+SERVICE_NAME = "HalvardGuard"
 LAID_DOWN = ["halvard-svc.exe", "halvard.conf"]
 
 INSTALL_MANIFEST = {

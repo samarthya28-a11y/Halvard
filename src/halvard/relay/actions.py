@@ -272,8 +272,12 @@ class _Isolate(_H):
 
     def apply(self, eng, req, plan):
         eng.host.isolate()
-        frozen = bool(getattr(eng, "blocked", None))
-        tail = "Residual: pid frozen only until release." if frozen else "Residual: cut off until release."
+        blocked = getattr(eng, "blocked", None) or {}
+        pids = sorted(int(p) for p in blocked)
+        if pids:
+            tail = "Frozen pids: " + ", ".join(str(p) for p in pids) + ". Residual: pid frozen only until release."
+        else:
+            tail = "Residual: cut off until release."
         return {"summary": "Isolated. Management channel is still up. " + tail, "undo": {"release": True}}
 
 

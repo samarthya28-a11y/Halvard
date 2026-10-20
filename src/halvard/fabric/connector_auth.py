@@ -4,9 +4,12 @@ The reference connectors seal each event with an HMAC key they hold. Automatic c
 accepts an event only when that seal verifies. HMAC is the reference stand-in for the
 connector's key, not a customer KMS and not the asymmetric policy key.
 """
-import hashlib, hmac, json
+import hashlib, hmac, json, secrets
 
-CONNECTOR_KEY = b"halvard-reference-connector-v1"
+# A new secret for this process. The old published string is not a key: resealing with it does not verify.
+# This is still a reference HMAC in this process, not a customer KMS.
+CONNECTOR_KEY = secrets.token_bytes(32)
+PUBLISHED_STAND_IN = b"halvard-reference-connector-v1"
 
 
 def _canon(event):

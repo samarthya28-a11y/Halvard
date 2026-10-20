@@ -117,6 +117,7 @@ class AuditLog:
             self._gap = f"log ends at seq {self._seq} but the witness file holds seq {witnessed[0]}: the log was removed"
         elif not self.anchor.exists() and self._seq == 0 and not witnessed:
             self._write_anchor()
+        self._load_hold()
 
     # ---- write path (the only mutation is append) ----
     def append(self, kind, actor, actor_role, subject, data=None, controls=(), controls_fired=()):
@@ -153,19 +154,54 @@ class AuditLog:
         return hmac.new(self._key, data, "sha256").hexdigest()
 
     def hold(self, approver):
-        """A second distinct person pins the spool and its anchor. One person does not."""
+        """A second distinct person pins the spool and its anchor. One person does not. The pin is stored beside the log, so a new log object on the same path still sees it."""
         if approver not in self._holders:
             self._holders.add(approver)
         self.pinned = len(self._holders) >= 2
         if self.pinned and not self.anchor.exists():
             self._write_anchor()
+        self._write_hold()
         return self.pinned
 
-    def _witness_path(self):
-        return Path(str(self.path) + ".witness")
+    def release(self, approver):
+        """One of the people who pinned the log steps off. The pin lasts until fewer than two remain."""
+        self._holders.discard(approver)
+        self.pinned = len(self._holders) >= 2
+        self._write_hold()
+        return self.pinned
 
-    def _read_witness(self):
-        path = self._witness_path()
+    def _hold_path(self):
+        return Path(str(self.path) + ".hold")
+
+    def _load_hold(self):
+        path = self._hold_path()
+        if not path.exists(): return
+        try:
+            body = json.loads(path.read_text(encoding="utf-8"))
+            seal = body.get("seal")
+            check = {"holders": body.get("holders")}
+            if not seal or not hmac.compare_digest(hmac.new(self._key, _canon(check), "sha256").hexdigest(), seal):
+                return
+            self._holders = set(body.get("holders") or [])
+            self.pinned = len(self._holders) >= 2
+        except (OSError, json.JSONDecodeError, KeyError, TypeError):
+            return
+
+    def _write_hold(self):
+        body = {"holders": sorted(self._holders)}
+        body["seal"] = hmac.new(self._key, _canon({"holders": body["holders"]}), "sha256").hexdigest()
+        self._hold_path().write_bytes(_canon(body))
+
+    def _witness_paths(self):
+        """The copy beside the log, and a second copy outside that trio. Deleting the log, the head, and the beside-copy still leaves the second."""
+        beside = Path(str(self.path) + ".witness")
+        outside = self.path.parent / ".halvard-witness" / (self.path.name + ".witness")
+        return beside, outside
+
+    def _witness_path(self):
+        return self._witness_paths()[0]
+
+    def _read_witness_file(self, path):
         if not path.exists(): return None
         try:
             body = json.loads(path.read_text(encoding="utf-8"))
@@ -177,10 +213,21 @@ class AuditLog:
         except (OSError, json.JSONDecodeError, KeyError):
             return None
 
+    def _read_witness(self):
+        best = None
+        for path in self._witness_paths():
+            got = self._read_witness_file(path)
+            if got and (best is None or got[0] > best[0]):
+                best = got
+        return best
+
     def _write_witness(self):
         body = {"seq": self._seq, "hash": self._head}
-        body["seal"] = hmac.new(self._key, _canon(body), "sha256").hexdigest()
-        self._witness_path().write_bytes(_canon(body))
+        body["seal"] = hmac.new(self._key, _canon({"seq": body["seq"], "hash": body["hash"]}), "sha256").hexdigest()
+        raw = _canon(body)
+        for path in self._witness_paths():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(raw)
 
     def _write_anchor(self):
         body = {"seq": self._seq, "hash": self._head}

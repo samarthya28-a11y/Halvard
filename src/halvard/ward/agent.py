@@ -427,6 +427,10 @@ class WardAgent:
         if getattr(self, "heartbeats_on", True) is False:
             return
         self.sensors["heartbeat"] = self.clock.now(); self.engine.offer_due()
+        cov = getattr(self, "coverage", None)
+        if cov is not None:
+            cov.resolve(self.device_id, "failed_open")
+            cov.resolve(self.device_id, "heartbeat_stopped")
 
     def stop_heartbeats(self):
         """The file hook stopped checking in. One coverage row, not a repeated alarm."""
@@ -484,8 +488,12 @@ class ProtectedFS:
         return any(fnmatch.fnmatch(p, g) for g in self.a.exclude)
 
     def _before(self, pid, op, path, dst=None):
-        if self.a._trusted(pid) or (self._excluded(path) and (dst is None or self._excluded(dst))):
+        if self.a._trusted(pid):
             return None, self._head(path, self.HEAD) if op != "create" else None
+        if self._excluded(path) and (dst is None or self._excluded(dst)):
+            # The bytes are not kept. The path is still a journal row, so a later report cannot call the rollback complete.
+            rid, _ = self.a.journal.before(pid, op, path, dst, forced_note="excluded from the journal by the platform profile, so these bytes were not kept", no_open=True)
+            return rid, self._head(path, self.HEAD) if op != "create" else None
         return self.a.journal.before(pid, op, path, dst)
 
     def create(self, pid, path, data: bytes):
