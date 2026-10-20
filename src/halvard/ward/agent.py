@@ -344,7 +344,7 @@ class WardAgent:
         batch = list(self.outbox); n = events.add(ctx, batch); self.outbox.clear(); return n
 
     # ---- pre-execution (F006) ----
-    def pre_execute(self, path, data: bytes, pid=0, publisher=None):
+    def pre_execute(self, path, data: bytes, pid=0, publisher=None, defer=None):
         stem = os.path.splitext(os.path.basename(path))[0].lower()
         image = hashlib.sha256(data).hexdigest()
         for b in self.bundle.blocked_apps:
@@ -360,8 +360,16 @@ class WardAgent:
                            "mode": mode, "online": self.online},
                           controls=("WARD.PRE_EXECUTION_VERDICT",) + (("WARD.OFFLINE_PREVENTION",) if not self.online else ()))
         if v.decision == "block" and mode == "enforce":
-            self.engine.request(ActionRequest("quarantine_file", SYSTEM, [path], f"pre-execution verdict: {'; '.join(v.reasons)}",
-                                              automatic=True, pattern="malware_quarantine"))
+            why = f"pre-execution verdict: {'; '.join(v.reasons)}"
+            def quarantine():
+                self.engine.request(ActionRequest("quarantine_file", SYSTEM, [path], why,
+                                                  automatic=True, pattern="malware_quarantine"))
+            # A permission callback must deny and return. Quarantine moves the file afterwards.
+            # Callers that are not inside that callback pass no defer and still quarantine before the exception propagates.
+            if defer is not None:
+                defer(quarantine)
+            else:
+                quarantine()
             raise Blocked(f"Blocked before it could run: {', '.join(v.reasons)}. The file was moved to quarantine.")
         return v
 
@@ -441,8 +449,12 @@ class WardAgent:
 
     def note_coverage(self, reason):
         when = self.clock.now()
-        self.spool.append("ward.coverage", "system", "system", self.device_id, {"device": self.device_id, "reason": reason, "time": when}, controls=("WARD.COVERAGE",))
         cov = getattr(self, "coverage", None)
+        if cov is not None and any(r["device"] == self.device_id and r["reason"] == reason for r in cov.rows):
+            cov.record(self.device_id, reason, when)
+            return
+        # No monitor: each note stays an audit line. There is no open marker to clear later.
+        self.spool.append("ward.coverage", "system", "system", self.device_id, {"device": self.device_id, "reason": reason, "time": when}, controls=("WARD.COVERAGE",))
         if cov is not None:
             cov.record(self.device_id, reason, when)
 

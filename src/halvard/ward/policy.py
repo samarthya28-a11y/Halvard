@@ -32,7 +32,7 @@ class PolicyBundle:
     dlp: dict = field(default_factory=dict)       # data protection: inspection gate, rules, USB approvals, partner and SaaS lists (see vaultline/)
     tripwires: list = field(default_factory=list)       # [{id, path, kind: encryption|decoy_file|credential_lure, lure_text?}] placed by Hearth; see hearth/
     tripwire_exempt: list = field(default_factory=list)  # publisher + image hash; a bare name matches only when the process has no image hash
-    blocked_apps: list = field(default_factory=list)   # publisher + image hash, or a name-only Glass stand-in when no hash is known yet
+    blocked_apps: list = field(default_factory=list)   # publisher + image hash, a hash with no publisher, or a name-only Glass stand-in
     learned_exceptions: list = field(default_factory=list)   # active entries from the console's learning store (device enforces expiry)
     retention_days_after_uninstall: int = 30
     asset_class: str = "standard"

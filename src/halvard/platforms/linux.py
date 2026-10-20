@@ -69,12 +69,21 @@ class LinuxHost(SimHost):
                 "exe_sha256": self._exe_hash(pid, exe, started), "cmdline": cmd, "ppid": ppid, "exe": exe, "started": started, "publisher": None}
 
     def _exe_hash(self, pid, exe, started):
-        """Hash the image this pid is running. Linux has no publisher. A path we cannot read stays unknown."""
+        """Hash the image this pid is running. Linux has no publisher. A path we cannot read stays unknown.
+
+        The cache key is the file (device, inode, size, mtime), so two processes of one binary share one hash.
+        A replaced file has a new size, mtime, or inode and is hashed again. `started` is not part of the key.
+        """
+        del started
         if not exe or exe.endswith(" (deleted)"): return None
         cache = getattr(self, "_exe_hashes", None)
         if cache is None:
             cache = {}; self._exe_hashes = cache
-        key = (exe, started)
+        try:
+            st = os.stat(f"/proc/{pid}/exe")
+        except OSError:
+            return None
+        key = (st.st_dev, st.st_ino, st.st_size, getattr(st, "st_mtime_ns", st.st_mtime))
         if key in cache: return cache[key]
         if len(cache) > 1024: cache.clear()
         try:
@@ -294,7 +303,8 @@ class FanotifySensor:
         data = os.pread(fd, min(st.st_size, 8 << 20), 0)
         from ..ward.agent import Blocked
         try:
-            a.pre_execute(path, data, pid=pid)      # same gate as the reference: hash, temporary blocks, and the verdict
+            # Deny in this callback. Quarantine is queued: doing it here can throw and the loop would then allow the exec.
+            a.pre_execute(path, data, pid=pid, defer=lambda fn: self.work.put(fn))
         except Blocked:
             return FAN_DENY
         a.emit("process", "exec", pid, path)

@@ -17,8 +17,12 @@ class CoverageMonitor:
         self.rows = []
 
     def record(self, device, reason, when=None):
-        """One row a person can read: which device, why coverage failed, and when."""
-        row = {"device": device, "reason": reason, "time": self.clock.now() if when is None else when}
+        """One open row per device and reason. A repeat counts up and does not write another ledger event."""
+        for row in self.rows:
+            if row["device"] == device and row["reason"] == reason:
+                row["count"] = row.get("count", 1) + 1
+                return row
+        row = {"device": device, "reason": reason, "time": self.clock.now() if when is None else when, "count": 1}
         self.rows.append(row)
         if self.audit:
             self.audit.append("coverage.row", "halvard:coverage", "system", device, dict(row), controls=("WARD.COVERAGE",))

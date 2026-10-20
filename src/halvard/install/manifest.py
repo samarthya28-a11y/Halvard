@@ -4,7 +4,9 @@ Decoys come off only when the product's remove command runs. A configure step th
 """
 
 SERVICE_NAME = "HalvardGuard"
-LAID_DOWN = ["halvard-svc.exe", "halvard.conf"]
+# The WiX file installs the service executable. The service writes service.json when it is configured.
+# halvard.conf is not laid down by that installer and is not named here.
+LAID_DOWN = ["halvard-svc.exe"]
 
 INSTALL_MANIFEST = {
     "kind": "install",

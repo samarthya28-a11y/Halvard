@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.10 - 2026-10-20
+Follow-up on the holes still open in 0.10.9. **Built** in the Python reference. This is not a shippable endpoint. There is still no kernel driver and no customer KMS.
+- A legal hold is stored in two sealed copies: beside the log, and under `.halvard-witness/`. Deleting one copy leaves the pin. Hold and release read those copies before they change the list, so a second log object that still has an older list cannot drop a holder the first object already recorded. Whether the log is pinned is computed from the holders. The attribute is still `_holders`. Deleting both copies lifts the pin. A remote hold service is not built.
+- Repeating one coverage reason on one device keeps a single open row, with a count, and a single ledger event and a single spool record, until that reason clears. A heartbeat still clears a failed-open row and a stopped-heartbeat row. A dropped pending record stays until the file is dealt with. An agent with no coverage monitor does not create a marker that would never clear; each note stays an audit line.
+- A blocked-app row that carries an image hash and no publisher matches that hash, whatever the file is named. A row that names a publisher still needs that publisher and the same hash. A publisher with no hash does not match by file name. A name-only Glass row still matches the program name.
+- The fanotify exec hook still returns deny inside the permission callback. Moving the file to quarantine is queued on the sensor's work queue and runs after that reply. A direct `pre_execute` call still quarantines before it raises. An allowed exec is still written as `ward.exec_verdict`. Dropping those allow records would hide the audit trail.
+- Linux hashes an executable once per file identity (device, inode, size, and modification time). Two processes of that file share the hash. Replacing the file changes that identity, so the new bytes are hashed. Linux still reports no publisher.
+- The install manifest no longer lists `halvard.conf`. The WiX installer does not lay that file down, and the service writes `service.json` when it is configured. The manifest still names `halvard-svc.exe` and the service `HalvardGuard`. `built` is still false. WiX does not read the manifest. The previous file list included a name nothing installs.
+
 ## 0.10.9 - 2026-10-20
 Left-out reference holes from the review. **Built** in the Python reference. This is not a shippable endpoint. There is still no kernel driver and no customer KMS.
 - A file the journal excludes, including `*.tmp`, is still named on the rollback. The report is not complete. A rename onto a file over the per-file cap names that destination on its own row. The source is restored when its pre-image was kept.

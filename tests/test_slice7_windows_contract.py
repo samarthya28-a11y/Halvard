@@ -64,8 +64,16 @@ class InstallerManifestTests(unittest.TestCase):
             self.assertEqual(m["decoys_removed_by"], "remove")
             self.assertEqual(m["configure_failure"], "rollback")
             self.assertFalse(m["built"])
-        wxs = (Path(__file__).resolve().parent.parent / "native" / "installer" / "halvard.wxs").read_text(encoding="utf-8")
+        root = Path(__file__).resolve().parent.parent
+        wxs = (root / "native" / "installer" / "halvard.wxs").read_text(encoding="utf-8")
+        service = (root / "native" / "halvard-svc" / "src" / "service.rs").read_text(encoding="utf-8")
         self.assertIn('Name="HalvardGuard"', wxs)
+        self.assertNotIn("halvard.conf", wxs)
+        self.assertNotIn("halvard.conf", service)
+        self.assertIn("service.json", service)
+        for m in (INSTALL_MANIFEST, UPDATE_MANIFEST):
+            self.assertNotIn("halvard.conf", m["files"])
+            self.assertEqual(m["files"], ["halvard-svc.exe"])
         self.assertEqual(INSTALL_MANIFEST["kind"], "install")
         self.assertEqual(UPDATE_MANIFEST["kind"], "update")
         self.assertNotEqual(INSTALL_MANIFEST["files"], [])

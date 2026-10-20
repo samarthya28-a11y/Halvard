@@ -106,7 +106,7 @@ class AuditLog:
         # off-box witness: called with (seq, hash) after every append. Where it sends them (control plane, a second machine, write-once storage) is what makes
         # "delete the log AND its local anchor" detectable; the local anchor alone cannot, because both files sit in the same directory.
         self.witness, self.witness_failures = None, 0
-        self.pinned, self._holders = False, set()
+        self._holders, self._hold_rev = set(), 0
         self._lock = threading.Lock()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.touch(exist_ok=True)
@@ -153,44 +153,83 @@ class AuditLog:
         """HMAC with the ledger key, so other evidence (e.g. a forensic manifest) is sealed by the same authority."""
         return hmac.new(self._key, data, "sha256").hexdigest()
 
+    @property
+    def pinned(self):
+        """True while two distinct people still hold the log. Computed from the holders, not stored beside them."""
+        return len(self._holders) >= 2
+
     def hold(self, approver):
-        """A second distinct person pins the spool and its anchor. One person does not. The pin is stored beside the log, so a new log object on the same path still sees it."""
-        if approver not in self._holders:
-            self._holders.add(approver)
-        self.pinned = len(self._holders) >= 2
-        if self.pinned and not self.anchor.exists():
-            self._write_anchor()
-        self._write_hold()
-        return self.pinned
+        """A second distinct person pins the spool and its anchor. One person does not.
+
+        Holders are read back from disk before this change, then written to two sealed copies.
+        A second log object that still has an older list in memory cannot drop someone the first object already recorded.
+        """
+        with self._lock:
+            self._load_hold()
+            if approver not in self._holders:
+                self._holders.add(approver)
+            if self.pinned and not self.anchor.exists():
+                self._write_anchor()
+            self._write_hold()
+            return self.pinned
 
     def release(self, approver):
         """One of the people who pinned the log steps off. The pin lasts until fewer than two remain."""
-        self._holders.discard(approver)
-        self.pinned = len(self._holders) >= 2
-        self._write_hold()
-        return self.pinned
+        with self._lock:
+            self._load_hold()
+            self._holders.discard(approver)
+            self._write_hold()
+            return self.pinned
+
+    def _hold_paths(self):
+        """The copy beside the log, and a second copy outside that file. Deleting one of them leaves the pin."""
+        beside = Path(str(self.path) + ".hold")
+        outside = self.path.parent / ".halvard-witness" / (self.path.name + ".hold")
+        return beside, outside
 
     def _hold_path(self):
-        return Path(str(self.path) + ".hold")
+        return self._hold_paths()[0]
 
-    def _load_hold(self):
-        path = self._hold_path()
-        if not path.exists(): return
+    def _read_hold_file(self, path):
+        if not path.exists(): return None
         try:
             body = json.loads(path.read_text(encoding="utf-8"))
+            holders = body.get("holders")
+            if not isinstance(holders, list): return None
             seal = body.get("seal")
-            check = {"holders": body.get("holders")}
-            if not seal or not hmac.compare_digest(hmac.new(self._key, _canon(check), "sha256").hexdigest(), seal):
-                return
-            self._holders = set(body.get("holders") or [])
-            self.pinned = len(self._holders) >= 2
-        except (OSError, json.JSONDecodeError, KeyError, TypeError):
-            return
+            rev = int(body.get("rev") or 0)
+            current = {"holders": holders, "rev": rev}
+            legacy = {"holders": holders}
+            signed = hmac.new(self._key, _canon(current), "sha256").hexdigest()
+            if seal and hmac.compare_digest(signed, seal):
+                return rev, set(holders)
+            if seal and hmac.compare_digest(hmac.new(self._key, _canon(legacy), "sha256").hexdigest(), seal):
+                return 0, set(holders)
+            return None
+        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+            return None
+
+    def _load_hold(self):
+        best_rev, best = -1, None
+        for path in self._hold_paths():
+            got = self._read_hold_file(path)
+            if got and got[0] > best_rev:
+                best_rev, best = got
+        if best is None:
+            self._hold_rev, self._holders = 0, set()
+        else:
+            self._hold_rev, self._holders = best_rev, best
 
     def _write_hold(self):
-        body = {"holders": sorted(self._holders)}
-        body["seal"] = hmac.new(self._key, _canon({"holders": body["holders"]}), "sha256").hexdigest()
-        self._hold_path().write_bytes(_canon(body))
+        rev = getattr(self, "_hold_rev", 0) + 1
+        holders = sorted(self._holders)
+        body = {"holders": holders, "rev": rev}
+        body["seal"] = hmac.new(self._key, _canon({"holders": holders, "rev": rev}), "sha256").hexdigest()
+        raw = _canon(body)
+        for path in self._hold_paths():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(raw)
+        self._hold_rev = rev
 
     def _witness_paths(self):
         """The copy beside the log, and a second copy outside that trio. Deleting the log, the head, and the beside-copy still leaves the second."""
