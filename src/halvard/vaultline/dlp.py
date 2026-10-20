@@ -56,6 +56,15 @@ class Decision:
     inspected: bool = True
 
 
+UNREAD_BLOCK = {
+    ("usb", "unapproved"), ("usb", "approved_plain"),
+    ("email_external", "external"), ("email_external", "partner"),
+    ("upload", "unsanctioned"), ("upload", "personal"),
+    ("ai_prompt", "ai_shadow"), ("ai_prompt", "ai_standard"), ("ai_prompt", "ai_enterprise"),
+    ("print", "any"),
+}
+
+
 def decide(classification, channel, dest_class, rules=None, min_conf=0.7) -> Decision:
     """classification may be None when inspection is off; then only content-independent rules (none by default) can apply."""
     rules = DEFAULT_RULES if rules is None else rules
@@ -67,5 +76,9 @@ def decide(classification, channel, dest_class, rules=None, min_conf=0.7) -> Dec
         if r["channel"] not in ("*", channel) or not ("*" in r["dest"] or dest_class in r["dest"]): continue
         hit = (r.get("labels") and any(l in labels for l in r["labels"])) or (r.get("sensitivity") and (labels or classification.unscannable) and RANK[classification.sensitivity] >= RANK[r["sensitivity"]])
         if hit and (ORDER[r["action"]] > ORDER[best.action] or best.rule is None or (r["action"] == best.action and best.justifiable and not r.get("justifiable", True))):
-            best = Decision(r["action"], r["id"], labels, r["message"] + (f" (Halvard could not read this file: {classification.unscannable}, so it is treated as confidential.)" if classification.unscannable and not labels else ""), r.get("justifiable", True), True)
+            best = Decision(r["action"], r["id"], labels, r["message"] + (f" (Halvard could not read this file: {classification.unscannable}, so it is treated as regulated.)" if classification.unscannable and not labels else ""), r.get("justifiable", True), True)
+    if classification.unscannable and (channel, dest_class) in UNREAD_BLOCK and not (best.action == "block" and not best.justifiable):
+        best = Decision("block", "unread-regulated", labels,
+                        f"Halvard could not read this file ({classification.unscannable}). It is regulated, so a reason cannot send it through {channel} to {dest_class}. Residual: file not read.",
+                        False, True)
     return best

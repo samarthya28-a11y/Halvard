@@ -4,6 +4,7 @@ from collections import deque
 
 from .idp import PRIVILEGED_ROLES
 from .ad import PRIVILEGED_GROUPS
+from ..fabric.connector_auth import mark, verified
 
 CRIT_ORDER = {None: 0, "low": 1, "normal": 2, "high": 3, "crown_jewel": 4}
 
@@ -68,7 +69,9 @@ class SignetService:
         for src, conn in (("idp", self.idp), ("ad", self.ad)):
             evs, self.cursors[src] = conn.events_since(self.cursors[src]); self.last_poll[src] = self.clock.now()
             for ev in evs:
+                ok = verified(ev)
                 for f in self.det.ingest(ev):
+                    mark(f, ok)
                     eid = entity_of_finding(f)
                     if eid and eid in {e["entity_id"] for e in self.store.entities(self.ctx)}:
                         self.store.add_finding(self.ctx, f.id, eid, f.detector, "Signet", f.confidence, f.evidence, f.ts)
@@ -76,8 +79,9 @@ class SignetService:
                     out.append(f)
                     if self.audit:
                         from ..ledger.audit import opaque
-                        self.audit.append("signet.finding", "halvard:signet", "system", opaque(f.entity),
-                                          {"detector": f.detector, "technique": f.technique, "confidence": f.confidence, "why": f.why, "user": f.entity}, controls=("SIGNET.DETECTION",))
+                        pub = {"detector": f.detector, "technique": f.technique, "confidence": f.confidence, "why": f.why, "user": f.entity}
+                        if not ok: pub["reference_model"] = True
+                        self.audit.append("signet.finding", "halvard:signet", "system", opaque(f.entity), pub, controls=("SIGNET.DETECTION",))
         self.findings += out; return out
 
     def connector_health(self, max_lag_s=900):

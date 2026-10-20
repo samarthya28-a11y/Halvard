@@ -23,11 +23,23 @@ from ..vaultline.classifiers import Classifier
 from ..vaultline.inspection import Inspector, InspectionPolicy, InspectionNotAllowed
 from ..vaultline import dlp as dlpmod
 from .verdict import VerdictEngine
+from .identity import allows, blocks
 
 SYSTEM = Principal("halvard:auto", "system")
 
 
 URGENT_REMOTE = {"isolate_host", "stop_process", "quarantine_file", "legal_hold"}      # containment is never delayed by a maintenance window; updates and rollbacks are
+
+
+class BlockedPids(dict):
+    """pid -> start time. `add` keeps the call sites that freeze a process; a later process that reused the pid does not match."""
+
+    def __init__(self, agent):
+        super().__init__(); self._agent = agent
+
+    def add(self, pid):
+        proc = self._agent.host.proc(pid) or {}
+        self[pid] = proc.get("started")
 
 
 class Blocked(PermissionError):
@@ -55,7 +67,7 @@ class WardAgent:
         self.verdicts = VerdictEngine(bundle.known_bad_sha256, reputation=reputation)
         self.profile = PROFILES[bundle.platform]
         self.journal.key = self.profile.path_key
-        self.blocked, self.incidents, self.recent_highent = set(), [], {}
+        self.blocked, self.incidents, self.recent_highent = BlockedPids(self), [], {}
         self.runtime, self.detections, self.outbox = Runtime(clock), [], deque(maxlen=20000)
         self.matcher = DeviceMatcher(clock, bundle.learned_exceptions)
         self._proc_cache = {}
@@ -83,11 +95,14 @@ class WardAgent:
         pol = CustomerPolicy(overrides=self.bundle.overrides, accepted_patterns=set(self.bundle.accepted_patterns))
         self.engine = ActionEngine(Authority(pol), self.spool, self.clock, self.host, self.journal,
                                    self.root / "relay", asset_class_of=lambda t: self.asset_class, device_id=self.device_id)
+        self.engine.on_containment_released = self.release_containment
+        self.engine.blocked = self.blocked
+        self.journal.spool = self.spool
 
     # ---- policy ----
     def apply_bundle(self, raw: dict, key: bytes):
         try:
-            nb = load_bundle(raw, key, self.bundle.version)
+            nb = load_bundle(raw, getattr(self, "policy_verifier", None) or key, self.bundle.version)
         except BundleError as e:
             self.spool.append("ward.policy_rejected", "system", "system", self.device_id, {"why": str(e)},
                               controls=("WARD.POLICY_INTEGRITY",))
@@ -103,7 +118,16 @@ class WardAgent:
         return True
 
     # ---- tripwires (Hearth): files nobody has a reason to touch ----
-    FORBIDDEN_ROOTS = ("/etc", "/usr", "/bin", "/sbin", "/boot", "/sys", "/proc", "/dev", "/lib", "/windows", "/program files", "/programdata")
+    FORBIDDEN_ROOTS = ("/etc", "/usr", "/bin", "/sbin", "/boot", "/sys", "/proc", "/dev", "/lib", "/var", "/opt", "/root", "/run", "/windows", "/program files", "/programdata")
+
+    @staticmethod
+    def _os_folder(kk):
+        """A forbidden root is that folder and its children. `/run` does not refuse `/runner`, and `/opt` does not refuse `/optical`."""
+        def hit(rest):
+            return any(rest == r or rest.startswith(r + "/") for r in WardAgent.FORBIDDEN_ROOTS)
+        if hit(kk): return True
+        if len(kk) > 2 and kk[1:2] == ":": return hit(kk[2:])
+        return False
 
     @staticmethod
     def _twkey(path): return os.path.normcase(os.path.realpath(str(path))).replace("\\", "/")      # a link to a tripwire is the tripwire
@@ -138,7 +162,7 @@ class WardAgent:
             why = None
             kk = k.lower().replace("\\", "/")
             if not (os.path.isabs(t["path"]) or str(t["path"]).replace("\\", "/").startswith("/")): why = "the path is not absolute"
-            elif any(kk.startswith(r) or (len(kk) > 2 and kk[1:2] == ":" and kk[2:].startswith(r)) for r in self.FORBIDDEN_ROOTS): why = "operating-system folders are never used"
+            elif self._os_folder(kk): why = "operating-system folders are never used"
             elif os.path.lexists(k): why = "a file already exists there; Halvard never replaces an existing file"
             elif not Path(k).parent.is_dir(): why = "the folder does not exist"
             if why:
@@ -168,8 +192,9 @@ class WardAgent:
                     tw = self.tripwires.get(k2) if k2 else None
                 except OSError: tw = None
             if not tw: continue
-            proc = (self.host.proc(pid) or {}).get("name")
-            if self._trusted(pid) or proc in self.bundle.tripwire_exempt:
+            info = self.host.proc(pid) or {}
+            proc = info.get("name")
+            if allows(self.bundle.trusted_writers, name=proc, publisher=info.get("publisher"), image_hash=info.get("exe_sha256")) or allows(self.bundle.tripwire_exempt, name=proc, publisher=info.get("publisher"), image_hash=info.get("exe_sha256")):
                 self.spool.append("ward.tripwire_exempt", "system", "system", self.device_id, {"tripwire": tw["id"], "op": op, "process": proc}, controls=("HEARTH.TRIPWIRES",)); continue
             modifying = op in ("write", "rename", "delete", "create")
             conf = 0.9 if (modifying or tw["kind"] != "encryption") else 0.3          # reading an encryption tripwire is what indexers and backups do
@@ -267,7 +292,7 @@ class WardAgent:
     # ---- commands from the control plane ----
     def execute_command(self, cmd, key: bytes):
         from ..relay import commands
-        ok, why = commands.verify(cmd, key, self.device_id, self.clock.now(), self._nonces, self.engine.auth, self.asset_class)
+        ok, why = commands.verify(cmd, getattr(self, "policy_verifier", None) or key, self.device_id, self.clock.now(), self._nonces, self.engine.auth, self.asset_class)
         if not ok:
             self.spool.append("ward.command_rejected", "controlplane", "system", self.device_id, {"why": why, "command": cmd.get("id")}, controls=("RELAY.COMMAND_CHANNEL",))
             return {"status": "rejected", "message": why}
@@ -319,10 +344,11 @@ class WardAgent:
         batch = list(self.outbox); n = events.add(ctx, batch); self.outbox.clear(); return n
 
     # ---- pre-execution (F006) ----
-    def pre_execute(self, path, data: bytes, pid=0):
+    def pre_execute(self, path, data: bytes, pid=0, publisher=None, defer=None):
         stem = os.path.splitext(os.path.basename(path))[0].lower()
+        image = hashlib.sha256(data).hexdigest()
         for b in self.bundle.blocked_apps:
-            if b["app"].lower() == stem:
+            if blocks(b, name=stem, publisher=publisher, image_hash=image):
                 self.spool.append("ward.exec_blocked_by_temporary_protection", "system", "system", self.device_id, {"app": stem, "why": b.get("why", ""), "control": b.get("control")},
                                   controls=("GLASS.COMPENSATING_CONTROL",) + (("WARD.OFFLINE_PREVENTION",) if not self.online else ()))
                 raise Blocked(f"{stem} is switched off on this device for now: {b.get('why', 'a temporary protection is in place')}. Ask IT if you need it.")
@@ -334,15 +360,23 @@ class WardAgent:
                            "mode": mode, "online": self.online},
                           controls=("WARD.PRE_EXECUTION_VERDICT",) + (("WARD.OFFLINE_PREVENTION",) if not self.online else ()))
         if v.decision == "block" and mode == "enforce":
-            self.engine.request(ActionRequest("quarantine_file", SYSTEM, [path], f"pre-execution verdict: {'; '.join(v.reasons)}",
-                                              automatic=True, pattern="malware_quarantine"))
+            why = f"pre-execution verdict: {'; '.join(v.reasons)}"
+            def quarantine():
+                self.engine.request(ActionRequest("quarantine_file", SYSTEM, [path], why,
+                                                  automatic=True, pattern="malware_quarantine"))
+            # A permission callback must deny and return. Quarantine moves the file afterwards.
+            # Callers that are not inside that callback pass no defer and still quarantine before the exception propagates.
+            if defer is not None:
+                defer(quarantine)
+            else:
+                quarantine()
             raise Blocked(f"Blocked before it could run: {', '.join(v.reasons)}. The file was moved to quarantine.")
         return v
 
     # ---- bulk-encryption prevention ----
     def _trusted(self, pid):
-        p = self.host.proc(pid)
-        return bool(p and p["name"] in self.bundle.trusted_writers)
+        p = self.host.proc(pid) or {}
+        return allows(self.bundle.trusted_writers, name=p.get("name"), publisher=p.get("publisher"), image_hash=p.get("exe_sha256"))
 
     def handle_verdict(self, v, defer=None):
         """Decide and freeze synchronously; run the response now, or via `defer(callable)` when a sensor must keep draining events."""
@@ -370,7 +404,7 @@ class WardAgent:
             inc["note"] = "Audit-only mode: nothing was blocked. Switch the rule to enforce to stop this automatically."
             return inc
         # Prevention: freeze the process's I/O immediately. Non-destructive, always available, reversible.
-        self.host.suspend(v.pid); self.blocked.add(v.pid)
+        self.host.suspend(v.pid); self.blocked.add(v.pid)      # records pid and the process start time
         self.spool.append("ward.io_blocked", "system", "system", self.device_id, {"pid": v.pid},
                           controls=("WARD.BEHAVIORAL_STOP",))
         run = lambda: self._respond(v, inc)
@@ -398,7 +432,46 @@ class WardAgent:
         self.tamper.seal()
 
     def heartbeat(self):
+        if getattr(self, "heartbeats_on", True) is False:
+            return
         self.sensors["heartbeat"] = self.clock.now(); self.engine.offer_due()
+        cov = getattr(self, "coverage", None)
+        if cov is not None:
+            cov.resolve(self.device_id, "failed_open")
+            cov.resolve(self.device_id, "heartbeat_stopped")
+
+    def stop_heartbeats(self):
+        """The file hook stopped checking in. One coverage row, not a repeated alarm."""
+        if getattr(self, "heartbeats_on", True) is False:
+            return
+        self.heartbeats_on = False
+        self.note_coverage("heartbeat_stopped")
+
+    def note_coverage(self, reason):
+        when = self.clock.now()
+        cov = getattr(self, "coverage", None)
+        if cov is not None and any(r["device"] == self.device_id and r["reason"] == reason for r in cov.rows):
+            cov.record(self.device_id, reason, when)
+            return
+        # No monitor: each note stays an audit line. There is no open marker to clear later.
+        self.spool.append("ward.coverage", "system", "system", self.device_id, {"device": self.device_id, "reason": reason, "time": when}, controls=("WARD.COVERAGE",))
+        if cov is not None:
+            cov.record(self.device_id, reason, when)
+
+    def block_pid(self, pid):
+        self.blocked.add(pid)
+
+    def is_blocked(self, pid):
+        if pid not in self.blocked: return False
+        recorded = self.blocked[pid]
+        started = (self.host.proc(pid) or {}).get("started")
+        if recorded is not None and started is not None and started != recorded:
+            return False
+        return True
+
+    def release_containment(self):
+        """Network isolation ends and frozen pids are forgotten. A process that is still the same start time can be stopped again; a reused pid is not."""
+        self.host.release(); self.blocked.clear()
 
 
 class ProtectedFS:
@@ -411,7 +484,7 @@ class ProtectedFS:
         self.a = agent
 
     def _gate(self, pid):
-        if pid in self.a.blocked:
+        if self.a.is_blocked(pid):
             raise Blocked("Halvard stopped this program from changing files because it looked like bulk encryption.")
 
     @staticmethod
@@ -427,8 +500,12 @@ class ProtectedFS:
         return any(fnmatch.fnmatch(p, g) for g in self.a.exclude)
 
     def _before(self, pid, op, path, dst=None):
-        if self.a._trusted(pid) or (self._excluded(path) and (dst is None or self._excluded(dst))):
+        if self.a._trusted(pid):
             return None, self._head(path, self.HEAD) if op != "create" else None
+        if self._excluded(path) and (dst is None or self._excluded(dst)):
+            # The bytes are not kept. The path is still a journal row, so a later report cannot call the rollback complete.
+            rid, _ = self.a.journal.before(pid, op, path, dst, forced_note="excluded from the journal by the platform profile, so these bytes were not kept", no_open=True)
+            return rid, self._head(path, self.HEAD) if op != "create" else None
         return self.a.journal.before(pid, op, path, dst)
 
     def create(self, pid, path, data: bytes):
@@ -459,6 +536,18 @@ class ProtectedFS:
         ext_changed = os.path.splitext(src)[1] != os.path.splitext(dst)[1]
         self.a.emit("file", "rename", pid, str(src), ("ext_changed",) if ext_changed else (), dst_path=str(dst))
         self._observe(pid, dst, ("ext_changed",) if ext_changed else ())
+
+    def ads(self, pid, path, stream, data: bytes):
+        """An alternate data stream. The reference keeps it as path:stream because this tree has no NTFS. The main file bytes stay. A stream on a tripwire is a touch of that file."""
+        self._gate(pid); self.a.tripwire_gate(pid, "write", path)
+        side = f"{path}:{stream}"
+        rid, _ = self._before(pid, "create", side)
+        Path(side).parent.mkdir(parents=True, exist_ok=True); Path(side).write_bytes(data)
+        if rid: self.a.journal.after(rid, side, content=data)
+
+    def delete_on_close(self, pid, path):
+        """The handle was opened with delete-on-close. Closing it removes the file, through the same gate as delete."""
+        self.delete(pid, path)
 
     def delete(self, pid, path):
         self._gate(pid); self.a.tripwire_gate(pid, "delete", path)

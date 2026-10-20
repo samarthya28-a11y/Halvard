@@ -14,6 +14,32 @@ class Gap:
 class CoverageMonitor:
     def __init__(self, store, ctx, clock, audit=None):
         self.store, self.ctx, self.clock, self.audit = store, ctx, clock, audit
+        self.rows = []
+
+    def record(self, device, reason, when=None):
+        """One open row per device and reason. A repeat counts up and does not write another ledger event."""
+        for row in self.rows:
+            if row["device"] == device and row["reason"] == reason:
+                row["count"] = row.get("count", 1) + 1
+                return row
+        row = {"device": device, "reason": reason, "time": self.clock.now() if when is None else when, "count": 1}
+        self.rows.append(row)
+        if self.audit:
+            self.audit.append("coverage.row", "halvard:coverage", "system", device, dict(row), controls=("WARD.COVERAGE",))
+        return row
+
+    def resolve(self, device, reason):
+        """A later heartbeat means this device is checking in again. Drop the open rows of this reason. A pending drop stays until someone restores the file."""
+        kept, gone = [], 0
+        for row in self.rows:
+            if row["device"] == device and row["reason"] == reason:
+                gone += 1
+            else:
+                kept.append(row)
+        self.rows = kept
+        if gone and self.audit:
+            self.audit.append("coverage.cleared", "halvard:coverage", "system", device, {"device": device, "reason": reason, "cleared": gone}, controls=("WARD.COVERAGE",))
+        return gone
 
     def evaluate(self, change_windows=None, record=True):
         now, gaps = self.clock.now(), []

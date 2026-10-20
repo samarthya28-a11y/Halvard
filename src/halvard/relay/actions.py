@@ -272,13 +272,22 @@ class _Isolate(_H):
 
     def apply(self, eng, req, plan):
         eng.host.isolate()
-        return {"summary": "Isolated. Management channel is still up.", "undo": {"release": True}}
+        blocked = getattr(eng, "blocked", None) or {}
+        pids = sorted(int(p) for p in blocked)
+        if pids:
+            tail = "Frozen pids: " + ", ".join(str(p) for p in pids) + ". Residual: pid frozen only until release."
+        else:
+            tail = "Residual: cut off until release."
+        return {"summary": "Isolated. Management channel is still up. " + tail, "undo": {"release": True}}
 
 
 class _Release(_H):
     def preview(self, eng, req): return {"summary": "Normal network access returns.", "cannot_undo": []}
     def apply(self, eng, req, plan):
-        eng.host.release(); return {"summary": "Isolation released."}
+        eng.host.release()
+        done = getattr(eng, "on_containment_released", None)
+        if done: done()
+        return {"summary": "Isolation released."}
 
 
 class _Stop(_H):
@@ -448,7 +457,10 @@ class _Undo(_H):
         h = eng.handlers.get(r.action)
         if h is not None and hasattr(h, "undo"):
             return h.undo(eng, r, d, req)
-        if r.action == "isolate_host": host.release()
+        if r.action == "isolate_host":
+            host.release()
+            done = getattr(eng, "on_containment_released", None)
+            if done: done()
         elif r.action == "quarantine_file":
             for q in d["qids"]: host.restore_quarantine(q)
         elif r.action in ("remove_persistence", "config_rollback"): host.restore_config(d["config"])

@@ -23,7 +23,7 @@ pub fn load(path: &Path) -> Result<Fixture, String> {
     for l in lines {
         let e: Value = serde_json::from_str(l).map_err(|e| e.to_string())?;
         let op = e["op"].as_str().unwrap_or("");
-        if Op::parse(op).is_none() {
+        if Op::parse(op).is_none() && op != "ads" && op != "delete_on_close" {
             return Err(format!("unknown op {op:?}"));
         }
         events.push(e);
@@ -71,6 +71,29 @@ fn key(p: &str) -> String {
     crate::brain::key(p)
 }
 
+/// Same path the Python reference decides on: drop `\\?\`, drop a drive letter, and resolve an 8.3 name from the fixture header.
+pub fn normalize(path: &str, header: &Value) -> String {
+    let mut p = path.replace('\\', "/");
+    if let Some(rest) = p.strip_prefix("//?/") {
+        p = rest.to_string();
+    }
+    let b = p.as_bytes();
+    if b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':' {
+        p = p[2..].trim_start_matches('/').to_string();
+    }
+    if let Some(map) = header.get("short_names").and_then(|v| v.as_object()) {
+        let base = p.rsplit('/').next().unwrap_or(&p);
+        for (k, v) in map {
+            if k.eq_ignore_ascii_case(base) {
+                if let Some(s) = v.as_str() {
+                    return s.replace('\\', "/");
+                }
+            }
+        }
+    }
+    p
+}
+
 /// Returns (seq, allowed) for every event, and the brain afterwards.
 pub fn run(fx: &Fixture) -> (Vec<(u64, bool)>, Brain) {
     let mut brain = Brain::new();
@@ -98,9 +121,16 @@ pub fn run(fx: &Fixture) -> (Vec<(u64, bool)>, Brain) {
     let mut out = Vec::new();
     for e in &fx.events {
         let pid = e["pid"].as_u64().unwrap_or(0);
-        let op = Op::parse(e["op"].as_str().unwrap_or("")).unwrap();
-        let path = e["path"].as_str().unwrap_or("");
-        let dst = e["dst"].as_str();
+        let raw = e["op"].as_str().unwrap_or("");
+        let op = match raw {
+            "ads" => Op::Write,            // a stream on a tripwire is a touch of that file; the main bytes are not this sample
+            "delete_on_close" => Op::Delete,
+            _ => Op::parse(raw).unwrap(),
+        };
+        let path_owned = normalize(e["path"].as_str().unwrap_or(""), &fx.header);
+        let path = path_owned.as_str();
+        let dst_owned = e["dst"].as_str().map(|d| normalize(d, &fx.header));
+        let dst = dst_owned.as_deref();
         let now = e["t_ms"].as_f64().unwrap_or(0.0) / 1000.0;
         let data = if matches!(op, Op::Create | Op::Write) { Some(materialize(&e["data"])) } else { None };
         let before = heads.get(&key(path)).cloned();
@@ -108,6 +138,7 @@ pub fn run(fx: &Fixture) -> (Vec<(u64, bool)>, Brain) {
             now,
             pid: pid as u32,
             proc_name: &name_of(pid),
+            trusted: false,
             op,
             path,
             dst,

@@ -11,6 +11,8 @@ It is a model, not a vendor clone, but it ENFORCES what the real thing enforces,
 import hashlib, secrets
 from dataclasses import dataclass, field
 
+from ..fabric.connector_auth import seal
+
 GLOBAL_ADMIN = "Global Administrator"
 PRIVILEGED_ROLES = {GLOBAL_ADMIN, "Privileged Role Administrator", "Exchange Administrator", "User Administrator", "Application Administrator"}
 HIGH_RISK_SCOPES = {"Mail.Read", "Mail.ReadWrite", "Mail.Send", "Files.ReadWrite.All", "Files.Read.All", "offline_access", "Directory.ReadWrite.All", "User.ReadWrite.All"}
@@ -82,7 +84,7 @@ class ReferenceIdP:
               "ip": kw.pop("ip", None), "geo": kw.pop("geo", None), "device_id": kw.pop("device_id", None), "app": kw.pop("app", None),
               "session_id": kw.pop("session_id", None), "extra": kw}
         d = self.devices.get(ev["device_id"]); ev["device_compliant"] = d["compliant"] if d else None
-        self.log.append(ev); return ev
+        self.log.append(seal(ev)); return ev
 
     def events_since(self, cursor):
         return self.log[cursor:], len(self.log)
@@ -90,6 +92,9 @@ class ReferenceIdP:
     # ---------------- sign-in ----------------
     def sign_in(self, upn, password, ip, geo, device_id=None, app="portal", mfa=None, protocol="modern", prompts=1):
         """mfa: 'approve' | 'deny' | None (no response). `prompts` models push spam: that many prompts are sent first."""
+        key = getattr(self, "signing_key", None)
+        if key is not None and getattr(key, "revoked", False):
+            self._emit("signin", upn, "failure", ip=ip, geo=geo, device_id=device_id, app=app, protocol=protocol, reason="signing key revoked"); raise AuthError("signing key revoked")
         u = self.users.get(upn)
         if protocol == "legacy" and not self.legacy_auth_allowed:
             self._emit("signin", upn, "failure", ip=ip, geo=geo, device_id=device_id, app=app, protocol="legacy", reason="legacy authentication blocked"); raise AuthError("legacy_blocked")

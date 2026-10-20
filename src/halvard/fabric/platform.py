@@ -101,10 +101,10 @@ class Platform:
         """The company's staff are enrolled by the platform when the company is set up (in production: its identity provider). A Member that was not enrolled is a forgery."""
         self.members.add((member.tenant, member.id, member.role)); return member
 
-    def _auth(self, member: Member):
+    def _auth(self, member: Member, kind="fabric.access_refused"):
         if not isinstance(member, Member):
-            self.ledger.append("fabric.access_refused", "unknown", "outsider", "platform", {"why": "no company member was named"}, controls=("FABRIC.DELEGATION",)); raise AccessRefused("a company member must be named")
-        if (member.tenant, member.id, member.role) not in self.members: self._refuse(member.tenant, member.id, "not a recognised member of this company")
+            self.ledger.append(kind, "unknown", "outsider", "platform", {"why": "no company member was named"}, controls=("FABRIC.DELEGATION",)); raise AccessRefused("a company member must be named")
+        if (member.tenant, member.id, member.role) not in self.members: self._refuse(member.tenant, member.id, "not a recognised member of this company", kind)
 
     def customer(self, member: Member):
         self._auth(member)
@@ -207,7 +207,9 @@ class Platform:
 
     def export(self, member: Member, destination_region):
         """The customer's data export (F128 in spirit): refused if the destination region is outside the tenant's residency. Only the company's own owner or IT admin can ask."""
-        self._auth(member)
+        self._auth(member, "fabric.export_refused")
+        if getattr(self, "signing_key", None) is not None and self.signing_key.revoked:
+            self._refuse(member.tenant, member.id, "the customer signing key is revoked", "fabric.export_refused")
         if member.role not in ("owner", "it_admin"): self._refuse(member.tenant, member.id, "only the company's owner or IT admin can export its data", "fabric.export_refused")
         tenant = member.tenant
         rec = self.tenants[tenant]; self.refresh_key(tenant)

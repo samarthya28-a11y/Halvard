@@ -141,5 +141,31 @@ class LinuxSensorTests(unittest.TestCase):
         self.assertTrue(led["public"]["personal_data"]); self.assertNotIn("HALVARD-MEM-MARKER", str(led))      # contents never enter the ledger
 
 
+class FanotifyRecordLength(unittest.TestCase):
+    """Malformed lengths must stop the parser. These do not need root or a kernel mark."""
+
+    def _sensor(self):
+        tmp = tempfile.mkdtemp(); a, host, clock, fs = make_agent(tmp)
+        return linux.FanotifySensor(a, tmp)
+
+    def test_a_zero_length_event_is_an_error_and_does_not_spin(self):
+        import struct
+        s = self._sensor()
+        s._consume_perm(struct.pack("<IBBHQii", 0, 0, 0, 0, 0, -1, 0))
+        self.assertEqual(s.stats["errors"], 1)
+        self.assertIn("impossible length 0", s.errors[0])
+
+    def test_a_short_info_record_is_an_error_and_does_not_spin(self):
+        import struct
+        s = self._sensor()
+        info = struct.pack("<BBH", 2, 0, 0)
+        elen = linux.HDR.size + len(info)
+        buf = struct.pack("<IBBHQii", elen, 0, 0, linux.HDR.size, 0, -1, 1) + info
+        s._consume_notify(buf)
+        self.assertEqual(s.stats["errors"], 1)
+        self.assertIn("info record with impossible length 0", s.errors[0])
+        self.assertFalse(s._busy_notify)
+
+
 if __name__ == "__main__":
     unittest.main()

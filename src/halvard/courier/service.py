@@ -5,6 +5,7 @@ the verdict and its reasons. The audit record never holds a subject or body. A s
 the first 40 characters of the subject so a person can recognise the message; that text is not written anywhere by Halvard.
 """
 from ..addr import domain_of
+from ..fabric.connector_auth import mark, verified
 import hashlib, re
 from dataclasses import dataclass, field
 
@@ -38,6 +39,7 @@ class MsgRecord:
     subject_hint: str = ""        # first 40 characters, held in memory only for the service-desk view
     evidence: list = field(default_factory=list)
     auto_quarantined: bool = False
+    connector_signed: bool = False
 
 
 class CourierService:
@@ -105,12 +107,18 @@ class CourierService:
         out = []
         evs, self.cursor = self.mail.events_since(self.cursor)
         for e in evs:
+            ok = verified(e)
             k = e["kind"]
-            if k == "delivered": out += self._on_delivered(e)
-            elif k == "attachment_open": out += self._on_open(e)
-            elif k == "link_click": out += self._on_click(e)
-            elif k in ("rule_create", "forwarding_set", "delegate_add"): out += self._on_tamper(e)
-            elif k == "user_report": out += self._on_report(e)
+            if k == "delivered": batch = self._on_delivered(e)
+            elif k == "attachment_open": batch = self._on_open(e)
+            elif k == "link_click": batch = self._on_click(e)
+            elif k in ("rule_create", "forwarding_set", "delegate_add"): batch = self._on_tamper(e)
+            elif k == "user_report": batch = self._on_report(e)
+            else: batch = []
+            rec = self.records.get((e.get("mailbox"), e.get("msg_id")))
+            if rec is not None and k == "delivered": rec.connector_signed = ok
+            for f in batch: mark(f, ok)
+            out += batch
         return out
 
     def _on_delivered(self, e):
@@ -173,8 +181,9 @@ class CourierService:
             if dec == "malicious":
                 rec.verdict, rec.score, rec.reasons, rec.verdict_at = dec, score, reasons, self.clock.now()
                 if self.last_content_score < 0.85: continue
-                out.append(self._f(self.clock.now(), "malicious_mail", "malicious_mail", mbx_id(mbx), "T1566.001" if hashes else "T1566.002", score, "; ".join(reasons[:3]) + " (verdict changed after delivery)",
-                                   f"A message delivered to {mbx} {int((self.clock.now() - rec.delivered_at) // 60)} minutes ago is now known to be harmful.", [f"mail:{mid}"], campaign=rec.campaign, msg_id=mid, delayed=True, exposure_s=int(self.clock.now() - rec.delivered_at)))
+                f = self._f(self.clock.now(), "malicious_mail", "malicious_mail", mbx_id(mbx), "T1566.001" if hashes else "T1566.002", score, "; ".join(reasons[:3]) + " (verdict changed after delivery)",
+                            f"A message delivered to {mbx} {int((self.clock.now() - rec.delivered_at) // 60)} minutes ago is now known to be harmful.", [f"mail:{mid}"], campaign=rec.campaign, msg_id=mid, delayed=True, exposure_s=int(self.clock.now() - rec.delivered_at))
+                out.append(mark(f, rec.connector_signed))
         return out
 
     # ---------------- exposure and landing ----------------

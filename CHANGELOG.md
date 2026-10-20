@@ -1,5 +1,85 @@
 # Changelog
 
+## 0.10.10 - 2026-10-20
+Follow-up on the holes still open in 0.10.9. **Built** in the Python reference. This is not a shippable endpoint. There is still no kernel driver and no customer KMS.
+- A legal hold is stored in two sealed copies: beside the log, and under `.halvard-witness/`. Deleting one copy leaves the pin. Hold and release read those copies before they change the list, so a second log object that still has an older list cannot drop a holder the first object already recorded. Whether the log is pinned is computed from the holders. The attribute is still `_holders`. Deleting both copies lifts the pin. A remote hold service is not built.
+- Repeating one coverage reason on one device keeps a single open row, with a count, and a single ledger event and a single spool record, until that reason clears. A heartbeat still clears a failed-open row and a stopped-heartbeat row. A dropped pending record stays until the file is dealt with. An agent with no coverage monitor does not create a marker that would never clear; each note stays an audit line.
+- A blocked-app row that carries an image hash and no publisher matches that hash, whatever the file is named. A row that names a publisher still needs that publisher and the same hash. A publisher with no hash does not match by file name. A name-only Glass row still matches the program name.
+- The fanotify exec hook still returns deny inside the permission callback. Moving the file to quarantine is queued on the sensor's work queue and runs after that reply. A direct `pre_execute` call still quarantines before it raises. An allowed exec is still written as `ward.exec_verdict`. Dropping those allow records would hide the audit trail.
+- Linux hashes an executable once per file identity (device, inode, size, and modification time). Two processes of that file share the hash. Replacing the file changes that identity, so the new bytes are hashed. Linux still reports no publisher.
+- The install manifest no longer lists `halvard.conf`. The WiX installer does not lay that file down, and the service writes `service.json` when it is configured. The manifest still names `halvard-svc.exe` and the service `HalvardGuard`. `built` is still false. WiX does not read the manifest. The previous file list included a name nothing installs.
+
+## 0.10.9 - 2026-10-20
+Left-out reference holes from the review. **Built** in the Python reference. This is not a shippable endpoint. There is still no kernel driver and no customer KMS.
+- A file the journal excludes, including `*.tmp`, is still named on the rollback. The report is not complete. A rename onto a file over the per-file cap names that destination on its own row. The source is restored when its pre-image was kept.
+- A legal hold is stored beside the log. A new log object on the same path still has it. One of the two people can release it; compact and export refuse only while two people still hold it.
+- The witness is also written under `.halvard-witness/`. Deleting the log, the `.head`, and the witness beside the log still fails verify. Deleting that second copy as well leaves a new log with nothing local to disagree with. A remote witness service is not built.
+- A failed-open row and a stopped-heartbeat row clear on the next heartbeat. The ledger keeps both the row and the clear. A dropped pending record stays until the file is dealt with.
+- Unread bytes cannot be justified onto an unsanctioned or personal upload, an AI prompt, partner mail, or a printer. A readable card sent to a partner is unchanged: it still asks for a reason.
+- The connector HMAC is a new secret for this process. Resealing with the old published string `halvard-reference-connector-v1` does not verify. It is still not a customer KMS, and a second process does not share this secret.
+- Linux `proc` hashes the image it can read and reports no publisher. The fanotify exec hook calls `pre_execute`.
+- The install manifest service name is `HalvardGuard`, the same name the existing WiX service uses. `built` is still false. The old manifest name `HalvardSvc` disagreed with that installer.
+- Isolate names the frozen pids and still ends with the residual line. The reference RSA key is unchanged: one shared 511-bit key, and revoking it hits every verifier.
+
+## 0.10.8 - 2026-10-18
+Review follow-up. **Built** in the Python reference and in the Stage A Rust guard. This is not a shippable endpoint, and there is still no kernel driver.
+- Decoy placement treats a forbidden root as that folder and its children. `/run` does not refuse `/runner`, and `/opt` does not refuse `/optical`. `/var`, `/opt`, `/root`, and `/run`, including `/var/home`, stay refused.
+- Card groups are still one card when the separator is a semicolon, a pipe, a figure space, a soft hyphen, a zero-width space, or a comma followed by a space. Unread files stay regulated. This commit does not add a PDF reader.
+- Keeper matches a name token shorter than four characters in its own case. "Bo" is still hidden. "An" does not hide "an", and "Jo Do" does not hide "do".
+- The Linux fanotify stand-in counts an error and stops the buffer when an event is shorter than its header, or skips the rest of an event when an info record is shorter than four bytes.
+- The Windows guard trusts MsMpEng only when the image path is under a Defender folder. A bare name passed as trust is still trusted in any folder. An empty path still leaves the protected system names unfrozen. A known path outside the Windows folder does not protect a program named svchost. A changed process start time forgets that pid. The ETW path reads the full image path and the process start time. The minifilter is not in this commit.
+- Continuous integration runs the Python suite on Linux and Windows, the fanotify tests as root on Linux, and the Rust tests on Windows.
+- Limits that stay limits: a file over the journal cap, and a name the journal excludes, can be missing from a complete report; deleting the log, the head, and the witness together leaves a new log with nothing to check; legal hold lives in memory on one log object; several residual lines are fixed text; the reference RSA private exponent and the connector HMAC key are constants in this tree; fail-open rows are one per event and are not cleared; the install manifest still says `HalvardSvc` while the existing WiX service is `HalvardGuard`, and the manifest is not what the installer reads.
+
+## 0.10.7 - 2026-10-17
+Slice 7 — Windows contract, still not a driver (features 1 and 2). **Specified, native component not in this commit.**
+- Windows sensor and installer are specified and fixture-tested. They are not built.
+- `src/halvard/sensor.py` is the contract: the ProtectedFS cases, plus `\\?\` prefixes, 8.3 short names, alternate data streams, and delete-on-close. Fixtures are `tests/fixtures/sensor/win_prefix.jsonl`, `short_name.jsonl`, `ads_document.jsonl`, `ads_tripwire.jsonl`, `delete_on_close.jsonl`, and `delete_on_close_tripwire.jsonl`. The Python reference must reproduce each golden decision. The reference records a stream as `path:stream` because this tree has no NTFS.
+- The install manifest and the update manifest name the service `HalvardSvc`, the files that would be laid down, that decoys are removed only by the product's remove command, and that a failed configure rolls back. `built` is false. There is no MSI in this commit.
+- The fixture inventory test now lists these files. The previous list was the inventory before this contract.
+
+## 0.10.6 - 2026-10-17
+Slice 6 — Coverage (features 9 and 15). **Built** in the Python reference. Native component not in this commit.
+- When the file hook allows an open because it threw, drops a pending record, or stops heartbeats, it writes one ledger event and one coverage row: device, reason, and time. The reason text is in the private half of the ledger because free-text reasons already live there.
+- The board page lists live, quiet, failed open, and no agent. The coverage score counts a failed-open row, so a score that ignores it is lower when the row is present. There is no pager and no email integration. The Linux fanotify stand-in records the allow it already returns when the hook throws.
+
+## 0.10.5 - 2026-10-17
+Slice 5 — Identity of programs and of connectors (features 5 and 14). **Built** in the Python reference. Native component not in this commit.
+- `trusted_writers`, `tripwire_exempt`, and an identity-shaped `blocked_apps` row match publisher plus image hash. The same file name with a different hash is not trusted and is not recorded as a block of the other program. A name-only row still matches a process that presents no image hash, and Glass temporary protections that do not yet know a hash still match the program name.
+- Signet, Courier, and Atlas seal reference events with a connector HMAC. Automatic isolate, password reset, mail clawback, and cloud-exposure revert run only when that seal verifies. An unsigned event is still stored as a finding marked `reference_model`. The HMAC is the reference connector key, not a customer KMS.
+
+## 0.10.4 - 2026-10-17
+Slice 4 — Service boundary and keys (features 3 and 4). **Built** as a reference, native component not in this commit.
+- `customer`, `export`, `import_bundle`, `external_call`, and `dependency_report` require an enrolled member. A test helper may open `rec.cp`. Production methods do not open another company by id alone.
+- Policy bundles, device commands, and ledger entries can be verified with a reference RSA signature. The agent is given the public verifier. The private exponent stays on `CustomerSigner`. Revoking that key refuses export, sign-in, and new commands.
+- The head anchor is a separate file. Its absence fails verify even when the log is empty (landed in 0.10.3).
+- HMAC remains only as ReferenceKMS's stated cipher stand-in, and as the legacy shared-secret path the rest of this reference model still uses for bundles and commands that were not signed with the customer key. This RSA is not a hardware key and not a production KMS.
+
+## 0.10.3 - 2026-10-17
+Slice 3 — Privacy, sessions, and evidence (features 8, 13, 16, 18). **Built** in the Python reference.
+- Untrusted-content taint, the runaway limit, and suspension follow the agent. A new session id does not clear them. An approval runs once, and only when the call still matches the stored digest.
+- Ledger personal-data keys match without case sensitivity and inside nested dicts. The subject is scrubbed. Wiping the log and deleting the `.head` anchor fails verify, including after a new log is opened on those paths. A missing anchor fails verify even when the log is empty. The old local verify that returned clean after that wipe was wrong; the witness file is what a new log can still see.
+- Two distinct people can pin the spool and the anchor. Compact, uninstall, and export then refuse.
+- Keeper hides a first name when the HR name is longer, hides other case and entity ids, and does not hide that name inside a longer unrelated word.
+- A non-member's export is refused and the refusal is in that company's ledger.
+- Isolate, rollback, DLP, and the agent gateway end with a residual line taken from the result (minutes left, file not read, file not in the journal, pid frozen only until release).
+- Still a reference model. HMAC remains the default ledger seal and the ReferenceKMS cipher. A customer signing key is the next slice.
+
+## 0.10.2 - 2026-10-17
+Slice 2 — Decoys, freeze, and unread data (features 7, 10, 11, 12). **Built** in the Python reference.
+- A customer cannot place a decoy in `/var`, `/opt`, `/root`, or `/run` (same refusal as `/etc`). An unwritable folder is skipped and logged; later decoys in the same policy still run. Exclusive create and hash-checked removal were already in 0.9.2.
+- Linux suspend refuses pids 0, 1, 2, the agent, its parent, and a configurable denylist. A frozen pid is stored with its start time and is cleared when containment is released. A reused pid with a new start time is not frozen.
+- A card grouped by tab, comma, slash, underscore, colon, middle dot, or ideographic space is a card. Digits in other scripts that are the same number are a card. A lowercase IBAN is an IBAN. Samples live in `tests/fixtures/dlp/`.
+- A PDF, a legacy Office file, an encrypted archive, an OOXML part that is not text, and unknown bytes are regulated when inspection is on. No justification copies them to an unapproved drive or an external address.
+- Still a reference model. No kernel driver in this commit.
+
+## 0.10.1 - 2026-10-17
+Slice 1 — Recovery contract (features 6 and 17). **Built** in the Python reference.
+- A customer can read the incident page and see every file the rollback considered, each as restored, left because it changed later, or not restorable, with the reason. The list comes from the journal report.
+- An open whose close never arrives, and an open whose pending record was dropped, is not a clean rollback while the new bytes are still there.
+- Rename onto an existing file, a write through a symlink, and a hard link to a tripwire were already restored or stopped in 0.9.2. This slice puts those files on the incident list.
+- Still a reference model. The Linux fanotify stand-in marks a dropped pending open in the journal. A Windows minifilter is not in this commit.
+
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
 ## 0.9.2 - 2026-10-17

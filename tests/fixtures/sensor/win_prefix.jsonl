@@ -1,0 +1,2 @@
+{"fixture": 1, "name": "win_prefix", "description": "A write through the \\\\?\\ prefix and a drive letter changes the same file the prefix names.", "processes": {"9": "editor.exe"}, "seed_files": [{"path": "docs/budget.xlsx", "kind": "text", "size": 3000}], "offline": false, "expect": {"deny_pids": [], "all_allowed": true}, "golden": "A"}
+{"seq": 1, "t_ms": 0, "pid": 9, "op": "write", "path": "\\\\?\\C:\\docs\\budget.xlsx", "data": {"kind": "text", "size": 120, "seed": 4}}

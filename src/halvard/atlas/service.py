@@ -7,6 +7,7 @@ import json
 
 from ..signet.detectors import Finding
 from ..ledger.audit import opaque
+from ..fabric.connector_auth import mark, verified
 from . import posture as P
 from .aws import ADMIN_PORTS, DB_PORTS
 
@@ -89,6 +90,7 @@ class AtlasService:
     def poll(self):
         evs, self.cursor = self.aws.events_since(self.cursor); out = []
         for e in evs:
+            n = len(out)
             k, flagged = e["kind"], bool(e.get("ip") and self.ip_flagged(e["ip"]))
             extra = "; made from an address already flagged for attacking an account here" if flagged else ""
             if k == "bucket_made_public":
@@ -105,6 +107,7 @@ class AtlasService:
                                    f"an access key was created for {e['user']} by someone else" + extra, f"A new access key was created for {e['user']}.", user=e["user"]))
             elif k == "admin_policy_attached":
                 out.append(self._f(e, "admin_attached", "cloud_abuse", user_id(e["user"]), "T1098.003", 0.9 if flagged else 0.8, "full administrator rights were attached to an account" + extra, f"{e['user']} was given administrator rights.", user=e["user"]))
+            for f in out[n:]: mark(f, verified(e))
         return out
 
     # ---------------- workloads ----------------
