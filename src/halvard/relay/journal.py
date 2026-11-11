@@ -5,7 +5,7 @@ disk. Rollback replays records for the given process(es) in reverse order, so th
 different process changed after the incident are NOT overwritten; they are reported. When the quota or per-file
 cap stops capture, the record says so and the recovery note lists those files as not restorable.
 """
-import hashlib, os, shutil, sqlite3, threading
+import hashlib, os, shutil, sqlite3, threading, time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -41,6 +41,7 @@ class RollbackReport:
     renamed_back: list = field(default_factory=list)
     skipped_changed_after: list = field(default_factory=list)
     not_restorable: list = field(default_factory=list)   # (path, reason)
+    restore_failed: list = field(default_factory=list)   # paths whose restore hit a file system error that did not clear
     snapshot_id: str | None = None
 
     @property
@@ -205,14 +206,14 @@ class Journal:
                     if not dry_run: os.replace(dst, path)
                     rep.renamed_back.append(path)
                 if pre:
-                    if not dry_run: self._restore(pre, path)
+                    if not dry_run: self._restore(pre, path, rep)
                     rep.restored.append(path)
                 if dst_pre and not os.path.exists(dst):
-                    if not dry_run: self._restore(dst_pre, dst)      # the file the rename overwrote comes back
+                    if not dry_run: self._restore(dst_pre, dst, rep)      # the file the rename overwrote comes back
                     rep.restored.append(dst)
             elif op in ("write", "delete"):
                 if pre:
-                    if not dry_run: self._restore(pre, path)
+                    if not dry_run: self._restore(pre, path, rep)
                     rep.restored.append(path)
                 elif op == "delete" and not any(r[4] == path and r[6] for r in rows):
                     rep.not_restorable.append((path, "deleted without a pre-image: the program never opened it first"))
@@ -220,21 +221,38 @@ class Journal:
                 # opened by the incident process, never seen written. If the file has since vanished (delete/move we
                 # could not attribute) bring it back; if it is still there, it is untouched and left alone.
                 if pre and not os.path.exists(path) and path not in tainted:
-                    if not dry_run: self._restore(pre, path)
+                    if not dry_run: self._restore(pre, path, rep)
                     rep.restored.append(path)
                 elif pre and os.path.isfile(path):
                     try: changed = sha(path) != pre
                     except OSError: changed = True
                     if changed:      # opened by the incident process, content differs, but no write was ever reported: say so instead of staying silent
                         rep.not_restorable.append((path, "opened by the incident program and its content now differs from before, but no write was observed, so it was not restored automatically"))
+        failed = set(rep.restore_failed)
+        rep.restored = [p for p in rep.restored if p not in failed]
         rep.not_restorable = sorted(set(rep.not_restorable))
         rep.restored = sorted(set(rep.restored)); rep.removed_created = sorted(set(rep.removed_created))
         return rep
 
-    def _restore(self, digest, path):
+    def _restore(self, digest, path, rep=None):
+        """Put a pre-image back. On Windows a virus scanner or indexer can hold the freshly written file for a moment, so the final rename is retried; a file that stays
+        unavailable is reported (not_restorable, with the reason) and the rollback goes on with the rest instead of stopping at the first one."""
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         tmp = str(path) + ".halvard-restore"
-        shutil.copyfile(self.root / "blobs" / digest, tmp); os.replace(tmp, path)
+        try:
+            shutil.copyfile(self.root / "blobs" / digest, tmp)
+            for attempt in range(30):
+                try: os.replace(tmp, path); return True
+                except PermissionError:
+                    if attempt == 29: raise
+                    time.sleep(0.1)
+        except OSError as e:
+            try: os.remove(tmp)
+            except OSError: pass
+            if rep is None: raise
+            rep.restore_failed.append(str(path))
+            rep.not_restorable.append((str(path), f"could not be restored: {e.strerror or e}"))
+            return False
 
     @_locked
     def pids_since(self, since):

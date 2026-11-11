@@ -2,6 +2,12 @@
 
 Versioning: MAJOR.MINOR.PATCH. MINOR = a phase or feature; PATCH = fixes, docs, branding. Log every issue against the version it was found in.
 
+## 0.9.3 - 2026-11-11
+- **Fix (found while taking a clean test count for the handoff):** on Windows a rollback could stop with `PermissionError` at the first file a virus scanner or indexer was briefly holding (the final rename of the restored file), leaving the remaining files unrestored; the full suite failed at random on it (`test_without_the_tripwire_the_same_burst_gets_through_several_files_first`, passes alone). `Journal._restore` now retries the rename (about 3 s), and a file that stays unavailable is reported in `not_restorable` ("could not be restored: ...") while the rest are restored; no temporary file is left. Two tests name the hole (`tests/test_journal_restore_retry.py`); both failed before the fix.
+- Handoff: `docs/29-product-handoff.md` (full product picture), rewritten `.ai/HANDOFF.md`, and a project `CLAUDE.md` so every session reads the handoff first and updates it after every key request. `.gitignore` now ignores stray clones and the review worktrees.
+- Note: branch `claude/review-batch-2-3` is also numbered 0.9.3 and is not merged; renumber it (0.9.4) when it is reconciled with Cursor's PR #2.
+- Tests: Python 542 (4 skipped), Rust 38.
+
 ## 0.9.2 - 2026-10-17
 Independent review (Cursor, against GitHub's stale copy at e9cb5ec) found real bugs in the Python reference; its Windows findings were moot (the Windows work had not been pushed). Batch 1, each with a test that FAILED before the fix (`tests/test_review_findings.py`, confirmed by temporarily reverting each fix):
 - **Data loss**: rename onto an existing file destroyed the destination on rollback. The journal now keeps the overwritten destination (`dst_pre`, database migrated in place) and restores it.
