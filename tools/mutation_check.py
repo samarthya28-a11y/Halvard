@@ -3,6 +3,11 @@ Usage: python3 tools/mutation_check.py   (prints one line per mutation; exits no
 import concurrent.futures, os, pathlib, re, shutil, subprocess, sys, tempfile
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 S = ROOT / "src" / "halvard"
+# On Windows the default temp folder is under AppData\Local, which the Windows platform profile deliberately does NOT journal (caches, temp): tests that
+# check recovery would fail there for a reason that has nothing to do with the code. Work in a folder inside the user's profile instead.
+MUT_BASE = None
+if sys.platform == "win32":
+    MUT_BASE = ROOT / ".mut-tmp"; MUT_BASE.mkdir(exist_ok=True)
 MUTATIONS = [
     ("F040 journal restore does nothing", "relay/journal.py", "shutil.copyfile(self.root / \"blobs\" / digest, tmp); os.replace(tmp, path)", "pass"),
     ("F007 behavioral stop disabled", "ward/detect.py", "min_files=8", "min_files=10**9"),
@@ -120,7 +125,10 @@ MUTATIONS = [
     ("Courier: documents not fingerprinted on the device", "ward/agent.py", "if ext in self.HASH_EXT and len(data) <= self.HASH_MAX else None", "if False else None"),
     ("Courier: small groups shown in exercise results", "courier/exercises.py", "MIN_GROUP = 5", "MIN_GROUP = 0"),
     ("Ledger: a briefly locked anchor file is fatal", "ledger/audit.py", "                if attempt == 29: raise", "                raise"),
-    ("Ledger: addresses allowed in public fields", "ledger/audit.py", "            pub = scrub({k: v for k, v in data.items() if k not in PII_KEYS})", "            pub = {k: v for k, v in data.items() if k not in PII_KEYS}"),
+    ("Ledger: addresses allowed in public fields", "ledger/audit.py", "            pub = scrub({k: v for k, v in data.items() if not pii(k, v)})", "            pub = {k: v for k, v in data.items() if not pii(k, v)}"),
+    ("Ledger: capitalised or nested personal keys stay public", "ledger/audit.py", "pii = lambda k, v: str(k).lower() in PII_KEYS or _has_pii(v)", "pii = lambda k, v: k in PII_KEYS"),
+    ("Ledger: an address in the subject stays public", "ledger/audit.py", "subject = scrub(subject) if isinstance(subject, str) else subject", "pass"),
+    ("Ledger: off-box witness not consulted", "ledger/audit.py", "if n < wseq: problems.append(", "if False: problems.append("),
     ("Courier: staff list frozen at start-up", "courier/impersonation.py", "        return {r.name.lower() for r in self.hr.records.values()} | self.vip_names", "        if not hasattr(self, '_c'): self._c = {r.name.lower() for r in self.hr.records.values()} | self.vip_names\n        return self._c"),
     ("Courier: sender-only fraud reported as a harmful attachment", "courier/service.py", "        if rec.verdict == \"malicious\" and self.last_content_score >= 0.85:", "        if rec.verdict == \"malicious\":"),
     # ---- Phase 5 ----
@@ -128,7 +136,21 @@ MUTATIONS = [
     ("Vaultline: IBAN checksum skipped", "vaultline/classifiers.py", "    return int(\"\".join(str(int(c, 36)) for c in s[4:] + s[:4])) % 97 == 1", "    return True"),
     ("Vaultline: Aadhaar checksum skipped", "vaultline/classifiers.py", "if verhoeff_ok(\"\".join(m.groups())))", "if True)"),
     ("Vaultline: never-issued SSN ranges accepted", "vaultline/classifiers.py", "def ssn_ok(a, g, s): return a not in (\"000\", \"666\") and not a.startswith(\"9\") and g != \"00\" and s != \"0000\"", "def ssn_ok(a, g, s): return True"),
-    ("Vaultline: unreadable formats guessed as text", "vaultline/classifiers.py", "    if data[:4] == b\"%PDF\": return \"\", \"PDF text extraction is not built\"", "    pass"),
+    ("Vaultline: unreadable formats guessed as text", "vaultline/classifiers.py", "else (\"\", \"PDF text could not be read (scanned image, unusual font encoding or encrypted)\")", "else (data.decode(\"utf-8\", \"ignore\"), None)"),
+    ("Vaultline: nested documents not read", "vaultline/classifiers.py", "if depth < MAX_DEPTH:", "if False:"),
+    ("Vaultline: digits in other scripts not normalised", "vaultline/classifiers.py", "text = ascii_digits(text);", "text = text;"),
+    ("Vaultline: lowercase IBAN missed", "vaultline/classifiers.py", "for m in IBAN.finditer(text.upper()):", "for m in IBAN.finditer(text):"),
+    ("Journal: overwritten rename destination not restored", "relay/journal.py", "if dst_pre and not os.path.exists(dst):", "if False:"),
+    ("Journal: symlink target not followed", "relay/journal.py", "path = os.path.realpath(path)      #", "pass      #"),
+    ("Journal: unreported opened-then-changed file", "relay/journal.py", "if changed:      # opened by the incident process", "if False:      # opened by the incident process"),
+    ("Tripwire: placement replaces a file that appeared", "ward/agent.py", "with open(k, \"xb\") as f: f.write(data)", "with open(k, \"wb\") as f: f.write(data)"),
+    ("Tripwire: hard links not recognised", "ward/agent.py", "if not tw and self._tw_inodes:", "if False:"),
+    ("Gateway: taint ignores the agent", "lumen/gateway.py", "taint = {**self._carried(agent.id), **session.taint}", "taint = dict(session.taint)"),
+    ("Gateway: runaway limit per session again", "lumen/gateway.py", "recent = [t for t in self._agent_calls.get(agent.id, []) if now - t <= RATE_WINDOW]", "recent = [t for t in session.calls if now - t <= RATE_WINDOW]"),
+    ("Platform: export needs no caller", "fabric/platform.py", "        self._auth(member)\n        if member.role not in (\"owner\", \"it_admin\"): self._refuse(member.tenant, member.id, \"only the company's owner or IT admin can export its data\"", "        if member.role not in (\"owner\", \"it_admin\"): self._refuse(member.tenant, member.id, \"only the company's owner or IT admin can export its data\""),
+    ("Freeze: kernel threads signalled", "platforms/linux.py", "or self._is_kernel_thread(pid):", ":"),
+    ("Keeper: partial names left", "fabric/keeper.py", "for n in sorted(set(whole + parts), key=len, reverse=True):", "for n in sorted(set(whole), key=len, reverse=True):"),
+    ("Keeper: names not matched as whole words", "fabric/keeper.py", "r\"(?<!\\w)\" + re.escape(n) + r\"(?!\\w)\"", "re.escape(n)"),
     ("Vaultline: inspection runs without staff notice", "vaultline/inspection.py", "if not self.notice_id or self.notice_effective_at is None:", "if False:"),
     ("Vaultline: inspection runs before the notice takes effect", "vaultline/inspection.py", "if now < self.notice_effective_at:", "if False:"),
     ("Vaultline: personal folders inspected", "vaultline/inspection.py", "        if any(fnmatch.fnmatch(norm, g) or fnmatch.fnmatch(norm.lower(), g.lower()) for g in self.exclude)", "        if False and any(fnmatch.fnmatch(norm, g) or fnmatch.fnmatch(norm.lower(), g.lower()) for g in self.exclude)"),
@@ -372,15 +394,23 @@ MUTATIONS = [
     ('Crosscheck: unlisted homoglyphs are not look-alikes', 'courier/analysis.py', '        if _wildcard_match(d, p): return p\n', '\n'),
     ('Crosscheck: IT search shows whose home folder it is', 'hunt/service.py', '"path": hide_person(r["path"])}', '"path": r["path"]}'),
     ('Crosscheck: a link to a tripwire is not the tripwire', 'ward/agent.py', 'return os.path.normcase(os.path.realpath(str(path)))', 'return os.path.normcase(os.path.normpath(str(path)))'),
-    ('Crosscheck: Keeper redaction is case-sensitive', 'fabric/keeper.py', 'flags=re.IGNORECASE)', 'flags=0)'),
+    ('Crosscheck: Keeper redaction is case-sensitive', 'fabric/keeper.py', 'flags=re.IGNORECASE if len(n) >= 4 else 0)', 'flags=0)'),
 ]
 
 
-COPY_DIRS = ("src", "tests", "policy", "docs", "tools")
+COPY_DIRS = ("src", "tests", "policy", "docs", "tools", "native")
+COPY_FILES = ("CHANGELOG.md", "README.md")
+
+
+def _copy_tree(work):
+    for d in COPY_DIRS:
+        shutil.copytree(ROOT / d, work / d, ignore=shutil.ignore_patterns("__pycache__", "target", "art"))      # never the Rust build folder (hundreds of MB)
+    for f in COPY_FILES:
+        shutil.copy2(ROOT / f, work / f)
 
 
 def _suite(root, env):
-    tmp = pathlib.Path(tempfile.mkdtemp(prefix="mut-tmp-")); env = dict(env, TMPDIR=str(tmp))      # all test temp files live here and are removed afterwards
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix="mut-tmp-", dir=MUT_BASE)); env = dict(env, TMPDIR=str(tmp))      # all test temp files live here and are removed afterwards
     try:
         return _suite_in(root, env)
     finally:
@@ -388,33 +418,38 @@ def _suite(root, env):
 
 
 def _suite_in(root, env):
-    r = subprocess.run([sys.executable, "-W", "ignore", "-m", "unittest", "discover", "-s", "tests"],
-                       cwd=root, env=env, capture_output=True, text=True, timeout=900)
+    try:
+        r = subprocess.run([sys.executable, "-W", "ignore", "-m", "unittest", "discover", "-s", "tests"],
+                           cwd=root, env=env, capture_output=True, text=True, timeout=int(os.environ.get("HALVARD_MUT_TIMEOUT", "1800")))
+    except subprocess.TimeoutExpired:
+        # NOT counted as killed: a slow machine (real-time virus scanning of thousands of temp files) looks the same as a hang, and a mutant nobody judged is unproven
+        return 124, [], "timeout"
     failing = re.findall(r"^(?:FAIL|ERROR): (test_\w+)", r.stderr, re.M)
     return r.returncode, failing, r.stderr
 
 
 def _one(i, mut, env):
     name, rel, old, new = mut
-    work = pathlib.Path(tempfile.mkdtemp(prefix=f"mut{i}-"))
+    work = pathlib.Path(tempfile.mkdtemp(prefix=f"mut{i}-", dir=MUT_BASE))
     try:
-        for d in COPY_DIRS:
-            shutil.copytree(ROOT / d, work / d, ignore=shutil.ignore_patterns("__pycache__"))
+        _copy_tree(work)
         f = work / "src" / "halvard" / rel; orig = f.read_text(encoding="utf-8")
         if old not in orig:
             return name, "SKIP", f"pattern not found in {rel}"
         f.write_text(orig.replace(old, new, 1), encoding="utf-8")
         rc, failing, err = _suite(work, env)
+        if err == "timeout": return name, "TIMEOUT", "the suite did not finish in time; re-run this one alone (HALVARD_MUT_TIMEOUT=3600) before believing anything"
         return name, ("KILLED" if rc != 0 and failing else "SURVIVED"), failing
     finally:
         shutil.rmtree(work, ignore_errors=True)
 
 
-def run(workers=4, only=None):
+def run(workers=None, only=None):
+    workers = workers or int(os.environ.get("HALVARD_MUT_WORKERS", "2" if sys.platform == "win32" else "4"))      # fewer on Windows: parallel suites contend for disk and the scanner
     env = dict(os.environ, HALVARD_SKIP_PERF="1", PYTHONWARNINGS="ignore")
-    work = pathlib.Path(tempfile.mkdtemp(prefix="mutbase-"))      # the baseline must pass in a COPY, exactly where mutants run
+    work = pathlib.Path(tempfile.mkdtemp(prefix="mutbase-", dir=MUT_BASE))      # the baseline must pass in a COPY, exactly where mutants run
     try:
-        for d in COPY_DIRS: shutil.copytree(ROOT / d, work / d, ignore=shutil.ignore_patterns("__pycache__"))
+        _copy_tree(work)
         rc, failing, err = _suite(work, env)
     finally:
         shutil.rmtree(work, ignore_errors=True)
@@ -423,12 +458,12 @@ def run(workers=4, only=None):
     print("baseline: suite passes (mutations run on throwaway copies; the real tree is never touched)")
     bad = 0
     with concurrent.futures.ThreadPoolExecutor(workers) as ex:
-        todo = [(i, m) for i, m in enumerate(MUTATIONS) if not only or only.lower() in m[0].lower()]
+        todo = [(i, m) for i, m in enumerate(MUTATIONS) if not only or any(f.strip().lower() in m[0].lower() for f in only.split("|"))]      # several filters: "Journal:|Keeper:"
         for name, status, info in ex.map(lambda im: _one(im[0], im[1], env), todo):
             if status == "KILLED":
                 print(f"KILLED    {name}  <- {info[0]}" + (f" (+{len(info)-1} more)" if len(info) > 1 else ""))
             else:
-                bad += 1; print(f"{status:9} {name}  {info if status == 'SKIP' else ''}")
+                bad += 1; print(f"{status:9} {name}  {info if status in ('SKIP', 'TIMEOUT') else ''}")
     return bad
 
 
