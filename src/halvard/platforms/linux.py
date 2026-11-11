@@ -68,13 +68,22 @@ class LinuxHost(SimHost):
         return {"name": comm, "user": uid, "state": {"T": "suspended", "Z": "terminated", "X": "terminated"}.get(state, "running"),
                 "exe_sha256": self._exe_hash(pid, exe, started), "cmdline": cmd, "ppid": ppid, "exe": exe, "started": started, "publisher": None}
 
-    def _exe_hash(self, pid, exe, started):
-        """Hash the image this pid is running. Linux has no publisher. A path we cannot read stays unknown."""
+    @staticmethod
+    def _exe_stat(pid):
+        """Identity of the file this pid runs: size and modification time of /proc/<pid>/exe (the target, not the link)."""
+        st = os.stat(f"/proc/{pid}/exe")
+        return st.st_size, st.st_mtime_ns
+
+    def _exe_hash(self, pid, exe, started=None):
+        """Hash the image this pid is running. Linux has no publisher. A path we cannot read stays unknown.
+        Cached per BINARY (path, size, modification time), not per process: the same program started a thousand times is read once, and a replaced binary is read again.
+        (This runs inside the kernel's permission callback, where every millisecond is a process that cannot start.)"""
         if not exe or exe.endswith(" (deleted)"): return None
         cache = getattr(self, "_exe_hashes", None)
         if cache is None:
             cache = {}; self._exe_hashes = cache
-        key = (exe, started)
+        try: key = (exe, *self._exe_stat(pid))
+        except OSError: return None
         if key in cache: return cache[key]
         if len(cache) > 1024: cache.clear()
         try:
@@ -294,7 +303,7 @@ class FanotifySensor:
         data = os.pread(fd, min(st.st_size, 8 << 20), 0)
         from ..ward.agent import Blocked
         try:
-            a.pre_execute(path, data, pid=pid)      # same gate as the reference: hash, temporary blocks, and the verdict
+            a.pre_execute(path, data, pid=pid, defer=self.work.put, record_allowed=False)      # same gate as the reference; the quarantine runs on the worker, not inside this callback
         except Blocked:
             return FAN_DENY
         a.emit("process", "exec", pid, path)

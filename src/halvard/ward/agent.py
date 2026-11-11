@@ -344,7 +344,10 @@ class WardAgent:
         batch = list(self.outbox); n = events.add(ctx, batch); self.outbox.clear(); return n
 
     # ---- pre-execution (F006) ----
-    def pre_execute(self, path, data: bytes, pid=0, publisher=None):
+    def pre_execute(self, path, data: bytes, pid=0, publisher=None, defer=None, record_allowed=True):
+        """Judge a program before it runs. A sensor that holds the kernel's permission request open passes `defer` (the quarantine then runs on its worker, never inside the
+        callback, where moving the file could ask the same hook for permission and wait for itself) and `record_allowed=False` (only blocks are recorded, as before: one
+        signed entry per program started would flood the spool and slow every process start)."""
         stem = os.path.splitext(os.path.basename(path))[0].lower()
         image = hashlib.sha256(data).hexdigest()
         for b in self.bundle.blocked_apps:
@@ -354,14 +357,17 @@ class WardAgent:
                 raise Blocked(f"{stem} is switched off on this device for now: {b.get('why', 'a temporary protection is in place')}. Ask IT if you need it.")
         v = self.verdicts.evaluate(data, os.path.basename(path), self.online)
         mode = self.bundle.prevention.get("known_bad", "enforce")
-        self.spool.append("ward.exec_verdict", "system", "system", self.device_id,
-                          {"decision": v.decision, "score": round(v.score, 2), "source": v.source,
-                           "reasons": v.reasons, "path": path, "sha256": __import__("hashlib").sha256(data).hexdigest(),
-                           "mode": mode, "online": self.online},
-                          controls=("WARD.PRE_EXECUTION_VERDICT",) + (("WARD.OFFLINE_PREVENTION",) if not self.online else ()))
-        if v.decision == "block" and mode == "enforce":
-            self.engine.request(ActionRequest("quarantine_file", SYSTEM, [path], f"pre-execution verdict: {'; '.join(v.reasons)}",
-                                              automatic=True, pattern="malware_quarantine"))
+        blocking = v.decision == "block" and mode == "enforce"
+        if record_allowed or blocking or v.decision != "allow":
+            self.spool.append("ward.exec_verdict", "system", "system", self.device_id,
+                              {"decision": v.decision, "score": round(v.score, 2), "source": v.source,
+                               "reasons": v.reasons, "path": path, "sha256": image,
+                               "mode": mode, "online": self.online},
+                              controls=("WARD.PRE_EXECUTION_VERDICT",) + (("WARD.OFFLINE_PREVENTION",) if not self.online else ()))
+        if blocking:
+            quarantine = lambda: self.engine.request(ActionRequest("quarantine_file", SYSTEM, [path], f"pre-execution verdict: {'; '.join(v.reasons)}",
+                                                                   automatic=True, pattern="malware_quarantine"))
+            (defer or (lambda fn: fn()))(quarantine)
             raise Blocked(f"Blocked before it could run: {', '.join(v.reasons)}. The file was moved to quarantine.")
         return v
 
@@ -428,9 +434,9 @@ class WardAgent:
             return
         self.sensors["heartbeat"] = self.clock.now(); self.engine.offer_due()
         cov = getattr(self, "coverage", None)
-        if cov is not None:
-            cov.resolve(self.device_id, "failed_open")
-            cov.resolve(self.device_id, "heartbeat_stopped")
+        for reason in ("failed_open", "heartbeat_stopped"):      # a pending_dropped row is not cleared by a heartbeat: it stays until someone restores the file
+            if cov is not None: cov.resolve(self.device_id, reason)
+            getattr(self, "_cov_open", {}).pop(reason, None)
 
     def stop_heartbeats(self):
         """The file hook stopped checking in. One coverage row, not a repeated alarm."""
@@ -440,11 +446,17 @@ class WardAgent:
         self.note_coverage("heartbeat_stopped")
 
     def note_coverage(self, reason):
+        """Record a coverage failure once while it is open: the first occurrence is a spool entry, a coverage row and a ledger entry; repeats only raise the row's count."""
         when = self.clock.now()
-        self.spool.append("ward.coverage", "system", "system", self.device_id, {"device": self.device_id, "reason": reason, "time": when}, controls=("WARD.COVERAGE",))
+        open_ = getattr(self, "_cov_open", None)
+        if open_ is None: open_ = self._cov_open = {}
         cov = getattr(self, "coverage", None)
-        if cov is not None:
-            cov.record(self.device_id, reason, when)
+        if cov is not None: cov.record(self.device_id, reason, when)
+        if reason in open_:
+            open_[reason] += 1
+            return
+        open_[reason] = 1
+        self.spool.append("ward.coverage", "system", "system", self.device_id, {"device": self.device_id, "reason": reason, "time": when}, controls=("WARD.COVERAGE",))
 
     def block_pid(self, pid):
         self.blocked.add(pid)

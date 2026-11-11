@@ -91,7 +91,7 @@ class CoverageAndIdentity(unittest.TestCase):
         sensor = linux.FanotifySensor(a, tmp)
         sensor.stats = {"exec_perm": 0}
         st = type("S", (), {"st_size": len(bad)})()
-        with unittest.mock.patch("os.fstat", return_value=st), unittest.mock.patch("os.pread", return_value=bad):
+        with unittest.mock.patch("os.fstat", return_value=st), unittest.mock.patch("os.pread", return_value=bad, create=True):
             self.assertEqual(sensor._on_exec(50, 3, os.path.join(tmp, "bad.bin")), linux.FAN_DENY)
         kinds = [e["kind"] for e in a.spool.entries()]
         self.assertIn("ward.exec_verdict", kinds)

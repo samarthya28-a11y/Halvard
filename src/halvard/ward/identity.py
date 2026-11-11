@@ -25,9 +25,13 @@ def allows(entries, *, name, publisher, image_hash):
 
 
 def blocks(entry, *, name, publisher, image_hash):
-    """True when this blocked-app row is this program. Identity rows ignore the file name."""
+    """True when this blocked-app row is this program. Identity rows ignore the file name.
+    A row that carries a hash blocks the file with that hash. The publisher string comes from the host and is not verified here, so it can neither be required (a Linux host
+    presents none) nor be used to talk a block away: the same bytes are the same program. A publisher alone identifies nothing and never matches."""
     want = _hash(entry)
-    if want or entry.get("publisher"):
-        return bool(want and entry.get("publisher") and image_hash == want and publisher == entry.get("publisher"))
+    if want:
+        return bool(image_hash) and image_hash == want
+    if entry.get("publisher"):
+        return False
     app = (entry.get("app") or "")
     return bool(app) and app.lower() == (name or "").lower()

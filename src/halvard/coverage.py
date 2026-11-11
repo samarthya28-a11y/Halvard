@@ -17,24 +17,30 @@ class CoverageMonitor:
         self.rows = []
 
     def record(self, device, reason, when=None):
-        """One row a person can read: which device, why coverage failed, and when."""
-        row = {"device": device, "reason": reason, "time": self.clock.now() if when is None else when}
+        """One row a person can read: which device, why coverage failed, and when. While a row for this device and reason is open, a repeat only raises its count:
+        a hook that fails on every open must not write thousands of rows and ledger entries (the first occurrence is the evidence; the count says how often)."""
+        now = self.clock.now() if when is None else when
+        for row in self.rows:
+            if row["device"] == device and row["reason"] == reason:
+                row["count"] = row.get("count", 1) + 1; row["last"] = now
+                return row
+        row = {"device": device, "reason": reason, "time": now, "count": 1, "last": now}
         self.rows.append(row)
         if self.audit:
-            self.audit.append("coverage.row", "halvard:coverage", "system", device, dict(row), controls=("WARD.COVERAGE",))
+            self.audit.append("coverage.row", "halvard:coverage", "system", device, {"device": device, "reason": reason, "time": now}, controls=("WARD.COVERAGE",))
         return row
 
     def resolve(self, device, reason):
         """A later heartbeat means this device is checking in again. Drop the open rows of this reason. A pending drop stays until someone restores the file."""
-        kept, gone = [], 0
+        kept, gone, times = [], 0, 0
         for row in self.rows:
             if row["device"] == device and row["reason"] == reason:
-                gone += 1
+                gone += 1; times += row.get("count", 1)
             else:
                 kept.append(row)
         self.rows = kept
         if gone and self.audit:
-            self.audit.append("coverage.cleared", "halvard:coverage", "system", device, {"device": device, "reason": reason, "cleared": gone}, controls=("WARD.COVERAGE",))
+            self.audit.append("coverage.cleared", "halvard:coverage", "system", device, {"device": device, "reason": reason, "cleared": gone, "occurrences": times}, controls=("WARD.COVERAGE",))
         return gone
 
     def evaluate(self, change_windows=None, record=True):
